@@ -1,0 +1,248 @@
+SIGAP-IT(Sistem Informasi Gangguan & Penanganan IT)
+
+# KEBUTUHAN FUNGSIONAL SISTEM
+
+**Aplikasi Pelaporan Gangguan & Ticketing IT Support**
+
+---
+
+## 1. Kebutuhan Fungsional Manajemen Pengguna
+
+### KF-01 Autentikasi Pengguna
+
+Sistem harus menyediakan mekanisme login dan logout bagi seluruh pengguna menggunakan kredensial yang valid.
+
+### KF-02 Otorisasi Berbasis Peran (RBAC)
+
+Sistem harus membedakan hak akses berdasarkan peran:
+
+* User/Pelapor
+* IT Support
+* Admin/Supervisor
+
+### KF-03 Manajemen Data Pengguna
+
+Admin dapat:
+
+* Menambah pengguna
+* Mengubah data pengguna
+* Menonaktifkan akun pengguna
+
+---
+
+## 2. Kebutuhan Fungsional Pelaporan Tiket
+
+### KF-04 Pembuatan Tiket Gangguan
+
+User dapat membuat tiket gangguan dengan mengisi:
+
+* Judul gangguan
+* Deskripsi gangguan
+* Kategori gangguan
+* Lokasi/unit kerja
+* Tingkat prioritas
+
+### KF-05 Nomor Tiket Otomatis
+
+Sistem harus menghasilkan **nomor tiket unik** secara otomatis untuk setiap tiket yang dibuat.
+
+### KF-06 Lampiran Pendukung
+
+User dapat melampirkan file (gambar/dokumen) sebagai bukti pendukung gangguan.
+
+---
+
+## 3. Kebutuhan Fungsional Deteksi & Relasi Tiket
+
+### KF-07 Deteksi Tiket Duplikat
+
+Sistem memberikan peringatan jika terdapat tiket dengan kemiripan judul, kategori, dan lokasi dalam periode waktu tertentu.
+
+### KF-08 Parent–Child Ticket
+
+Sistem harus mendukung relasi tiket induk dan sub-tiket untuk gangguan yang bersifat massal.
+
+---
+
+## 4. Kebutuhan Fungsional Status & Siklus Hidup Tiket
+
+### KF-09 Status Tiket
+
+Sistem harus mendukung status tiket berikut:
+
+1. **Open**
+2. **In Progress**
+3. **Pending**
+4. **Resolved**
+5. **Closed**
+6. **Rejected**
+
+### KF-10 Perubahan Status Tiket
+
+Perubahan status hanya dapat dilakukan oleh pihak yang berwenang sesuai peran.
+
+### KF-11 Worklog Wajib
+
+Setiap perubahan status tiket **wajib disertai catatan kerja (worklog)**.
+
+---
+
+## 5. Kebutuhan Fungsional Penanganan Tiket (Self-Assignment)
+
+### KF-12 Pengambilan Tiket Mandiri
+
+IT Support dapat mengambil tiket berstatus **Open** melalui dashboard tanpa penugasan admin.
+
+### KF-13 Auto-Assign Saat Diambil
+
+Saat tiket diambil:
+
+* Sistem otomatis menetapkan IT Support sebagai penanggung jawab
+* Status berubah menjadi **In Progress**
+* Waktu mulai penanganan dicatat
+
+### KF-14 Batas Tiket Aktif
+
+Sistem membatasi jumlah maksimal tiket **In Progress** yang dapat ditangani oleh satu IT Support.
+
+---
+
+## 6. Kebutuhan Fungsional Pending & Timeout
+
+### KF-15 Status Pending
+
+IT Support dapat mengubah status tiket menjadi **Pending** jika menunggu:
+
+* Respon user
+* Pihak ketiga/vendor
+* Persetujuan tertentu
+
+### KF-16 Alasan Pending
+
+Setiap status Pending wajib disertai alasan yang dipilih dari sistem.
+
+### KF-17 Pending Timeout
+
+Sistem harus:
+
+* Mengirim pengingat otomatis
+* Melakukan eskalasi jika Pending melebihi batas waktu
+
+---
+
+## 7. Kebutuhan Fungsional SLA & Eskalasi
+
+### KF-18 Multi-SLA
+
+Sistem harus mendukung SLA berdasarkan:
+
+* Prioritas tiket
+* Kategori gangguan
+* Jam operasional
+
+### KF-19 Perhitungan SLA
+
+* SLA berjalan saat status **In Progress**
+* SLA dihentikan sementara saat **Pending**
+* SLA berhenti saat **Resolved**
+
+### KF-20 Eskalasi Otomatis
+
+Sistem melakukan eskalasi otomatis jika tiket mendekati atau melanggar SLA.
+
+---
+
+## 8. Kebutuhan Fungsional Komunikasi Tiket
+
+### KF-21 Komentar Tiket
+
+User dan IT Support dapat berkomunikasi melalui kolom komentar pada tiket.
+
+### KF-22 Histori Komunikasi
+
+Seluruh komunikasi disimpan sebagai bagian dari histori tiket.
+
+---
+
+## 9. Kebutuhan Fungsional Penutupan & Evaluasi
+
+### KF-23 Penyelesaian Tiket
+
+IT Support dapat menandai tiket sebagai **Resolved** setelah solusi diterapkan.
+
+### KF-24 Reopen Ticket
+
+User dapat membuka kembali tiket yang telah diselesaikan dalam periode tertentu.
+
+### KF-25 Auto-Close
+
+Sistem menutup tiket secara otomatis jika user tidak memberikan konfirmasi dalam periode yang ditentukan.
+
+### KF-26 Rating & Feedback
+
+User dapat memberikan:
+
+* Penilaian layanan
+* Komentar kepuasan
+
+---
+
+## 10. Kebutuhan Fungsional Dashboard & Laporan
+
+### KF-27 Dashboard Berbasis Peran
+
+Sistem menyediakan dashboard berbeda untuk:
+
+* User
+* IT Support
+* Admin
+
+### KF-28 Laporan Tiket
+
+Admin dapat menghasilkan laporan berdasarkan:
+
+* Periode waktu
+* Status tiket
+* SLA
+* Kinerja IT Support
+
+### KF-29 Ekspor Laporan
+
+Laporan dapat diekspor ke format PDF dan Excel.
+
+---
+
+## 11. Kebutuhan Fungsional Knowledge Base
+
+### KF-30 Manajemen Knowledge Base
+
+Solusi tiket dapat disimpan sebagai artikel knowledge base.
+
+### KF-31 Rekomendasi Solusi
+
+Sistem dapat menampilkan rekomendasi solusi saat user membuat tiket.
+
+---
+
+## 12. Kebutuhan Fungsional Audit & Keamanan
+
+### KF-32 Audit Trail
+
+Sistem mencatat seluruh aktivitas pengguna, termasuk:
+
+* Login/logout
+* Perubahan status tiket
+* Pengambilan tiket
+* Eskalasi SLA
+
+### KF-33 Hak Akses Granular
+
+Hak akses sistem diatur secara detail sesuai peran pengguna.
+
+---
+
+## Penutup (Siap Dokumen)
+
+> “Kebutuhan fungsional sistem dirancang untuk mendukung proses pelaporan gangguan dan penanganan tiket IT Support secara terstruktur, transparan, dan terkontrol dengan pendekatan self-assignment, pengelolaan SLA dinamis, serta pencatatan aktivitas yang lengkap.”
+
+---
