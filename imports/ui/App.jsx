@@ -11,6 +11,8 @@ import { TicketList } from './pages/TicketList';
 import { TicketDetail } from './pages/TicketDetail';
 import { OpenTickets } from './pages/OpenTickets';
 import { AssignedTickets } from './pages/AssignedTickets';
+import { KnowledgeBase } from './pages/KnowledgeBase';
+import { KBArticleDetail } from './pages/KBArticleDetail';
 
 // Layouts
 import { MainLayout } from './layouts/MainLayout';
@@ -50,6 +52,8 @@ export const App = () => (
         <Route path="tickets/open" element={<OpenTickets />} />
         <Route path="tickets/assigned" element={<AssignedTickets />} />
         <Route path="tickets/:id" element={<TicketDetail />} />
+        <Route path="kb" element={<KnowledgeBase />} />
+        <Route path="kb/:id" element={<KBArticleDetail />} />
       </Route>
     </Routes>
   </Router>
