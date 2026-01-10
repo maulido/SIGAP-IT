@@ -56,3 +56,29 @@ Meteor.publish('tickets.all', function (filters = {}) {
 
     return Tickets.find(query, { sort: { createdAt: -1 }, limit: 100 });
 });
+
+// Publication for ticket family (parent and children)
+Meteor.publish('tickets.family', function (ticketId) {
+    if (!this.userId) {
+        return this.ready();
+    }
+
+    const ticket = Tickets.findOne(ticketId);
+    if (!ticket) {
+        return this.ready();
+    }
+
+    const ticketIds = [ticketId];
+
+    // Add parent
+    if (ticket.parentTicketId) {
+        ticketIds.push(ticket.parentTicketId);
+    }
+
+    // Add children
+    if (ticket.childTicketIds && ticket.childTicketIds.length > 0) {
+        ticketIds.push(...ticket.childTicketIds);
+    }
+
+    return Tickets.find({ _id: { $in: ticketIds } });
+});

@@ -48,7 +48,7 @@ export const TicketDetail = () => {
     const [rating, setRating] = useState(0);
     const [ratingFeedback, setRatingFeedback] = useState('');
 
-    const { ticket, comments, worklogs, attachments, users, currentUser, pendingReasons, ticketRating, isLoading } = useTracker(() => {
+    const { ticket, comments, worklogs, attachments, users, currentUser, pendingReasons, ticketRating, ticketFamily, isLoading } = useTracker(() => {
         const ticketHandle = Meteor.subscribe('tickets.byId', id);
         const commentsHandle = Meteor.subscribe('comments.byTicket', id);
         const worklogsHandle = Meteor.subscribe('worklogs.byTicket', id);
@@ -56,10 +56,24 @@ export const TicketDetail = () => {
         const usersHandle = Meteor.subscribe('users.names');
         const pendingReasonsHandle = Meteor.subscribe('pendingReasons.active');
         const ratingsHandle = Meteor.subscribe('ratings.byTicket', id);
+        const familyHandle = Meteor.subscribe('tickets.family', id);
 
         const currentUser = Meteor.user();
         const ticket = Tickets.findOne(id);
-        const isLoading = !ticketHandle.ready() || !commentsHandle.ready() || !worklogsHandle.ready() || !attachmentsHandle.ready() || !usersHandle.ready() || !pendingReasonsHandle.ready() || !ratingsHandle.ready();
+        const isLoading = !ticketHandle.ready() || !commentsHandle.ready() || !worklogsHandle.ready() || !attachmentsHandle.ready() || !usersHandle.ready() || !pendingReasonsHandle.ready() || !ratingsHandle.ready() || !familyHandle.ready();
+
+        // Get family tickets
+        let parentTicket = null;
+        let childTickets = [];
+
+        if (ticket && familyHandle.ready()) {
+            if (ticket.parentTicketId) {
+                parentTicket = Tickets.findOne(ticket.parentTicketId);
+            }
+            if (ticket.childTicketIds && ticket.childTicketIds.length > 0) {
+                childTickets = Tickets.find({ _id: { $in: ticket.childTicketIds } }).fetch();
+            }
+        }
 
         return {
             ticket,
@@ -69,6 +83,7 @@ export const TicketDetail = () => {
             users: Meteor.users.find().fetch(),
             pendingReasons: PendingReasons.find({}, { sort: { reason: 1 } }).fetch(),
             ticketRating: Ratings.findOne({ ticketId: id }),
+            ticketFamily: { parent: parentTicket, children: childTickets },
             currentUser,
             isLoading,
         };
@@ -492,8 +507,8 @@ export const TicketDetail = () => {
                                             >
                                                 <svg
                                                     className={`h-8 w-8 ${star <= rating
-                                                            ? 'text-yellow-400 fill-current'
-                                                            : 'text-gray-300'
+                                                        ? 'text-yellow-400 fill-current'
+                                                        : 'text-gray-300'
                                                         }`}
                                                     viewBox="0 0 20 20"
                                                 >
@@ -543,8 +558,8 @@ export const TicketDetail = () => {
                                     <svg
                                         key={star}
                                         className={`h-6 w-6 ${star <= ticketRating.rating
-                                                ? 'text-yellow-400 fill-current'
-                                                : 'text-gray-300'
+                                            ? 'text-yellow-400 fill-current'
+                                            : 'text-gray-300'
                                             }`}
                                         viewBox="0 0 20 20"
                                     >
@@ -616,6 +631,86 @@ export const TicketDetail = () => {
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    )}
+
+                    {/* Parent-Child Relationships */}
+                    {(ticketFamily?.parent || (ticketFamily?.children && ticketFamily.children.length > 0)) && (
+                        <div className="card">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                                Related Tickets
+                            </h3>
+
+                            {/* Parent Ticket */}
+                            {ticketFamily.parent && (
+                                <div className="mb-4">
+                                    <p className="text-xs font-medium text-gray-500 uppercase mb-2">
+                                        Parent Ticket
+                                    </p>
+                                    <Link
+                                        to={`/tickets/${ticketFamily.parent._id}`}
+                                        className="block bg-blue-50 border border-blue-200 rounded-lg p-3 hover:bg-blue-100 transition-colors"
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex-1">
+                                                <p className="text-sm font-medium text-blue-900">
+                                                    {ticketFamily.parent.ticketNumber}
+                                                </p>
+                                                <p className="text-xs text-blue-700 mt-1 line-clamp-2">
+                                                    {ticketFamily.parent.title}
+                                                </p>
+                                            </div>
+                                            <span className={`ml-2 px-2 py-1 text-xs font-medium rounded ${ticketFamily.parent.status === 'Open' ? 'bg-blue-100 text-blue-800' :
+                                                    ticketFamily.parent.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
+                                                        ticketFamily.parent.status === 'Pending' ? 'bg-orange-100 text-orange-800' :
+                                                            ticketFamily.parent.status === 'Resolved' ? 'bg-green-100 text-green-800' :
+                                                                ticketFamily.parent.status === 'Closed' ? 'bg-gray-100 text-gray-800' :
+                                                                    'bg-red-100 text-red-800'
+                                                }`}>
+                                                {ticketFamily.parent.status}
+                                            </span>
+                                        </div>
+                                    </Link>
+                                </div>
+                            )}
+
+                            {/* Child Tickets */}
+                            {ticketFamily.children && ticketFamily.children.length > 0 && (
+                                <div>
+                                    <p className="text-xs font-medium text-gray-500 uppercase mb-2">
+                                        Sub-Tickets ({ticketFamily.children.length})
+                                    </p>
+                                    <div className="space-y-2">
+                                        {ticketFamily.children.map(child => (
+                                            <Link
+                                                key={child._id}
+                                                to={`/tickets/${child._id}`}
+                                                className="block bg-gray-50 border border-gray-200 rounded-lg p-3 hover:bg-gray-100 transition-colors"
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex-1">
+                                                        <p className="text-sm font-medium text-gray-900">
+                                                            {child.ticketNumber}
+                                                        </p>
+                                                        <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+                                                            {child.title}
+                                                        </p>
+                                                    </div>
+                                                    <span className={`ml-2 px-2 py-1 text-xs font-medium rounded ${child.status === 'Open' ? 'bg-blue-100 text-blue-800' :
+                                                            child.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
+                                                                child.status === 'Pending' ? 'bg-orange-100 text-orange-800' :
+                                                                    child.status === 'Resolved' ? 'bg-green-100 text-green-800' :
+                                                                        child.status === 'Closed' ? 'bg-gray-100 text-gray-800' :
+                                                                            'bg-red-100 text-red-800'
+                                                        }`}>
+                                                        {child.status}
+                                                    </span>
+                                                </div>
+                                            </Link>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 

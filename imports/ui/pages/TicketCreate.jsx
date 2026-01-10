@@ -29,6 +29,10 @@ export const TicketCreate = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [uploadError, setUploadError] = useState('');
+    const [linkToParent, setLinkToParent] = useState(false);
+    const [parentTicketNumber, setParentTicketNumber] = useState('');
+    const [parentTicket, setParentTicket] = useState(null);
+    const [searchingParent, setSearchingParent] = useState(false);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -114,6 +118,31 @@ export const TicketCreate = () => {
         });
     };
 
+    const handleSearchParent = async () => {
+        if (!parentTicketNumber.trim()) {
+            setError('Please enter a ticket number');
+            return;
+        }
+
+        setSearchingParent(true);
+        setError('');
+        setParentTicket(null);
+
+        try {
+            const result = await Meteor.callAsync('tickets.searchByNumber', parentTicketNumber.trim().toUpperCase());
+
+            if (result) {
+                setParentTicket(result);
+            } else {
+                setError('Parent ticket not found');
+            }
+        } catch (err) {
+            setError(err.reason || 'Failed to search ticket');
+        } finally {
+            setSearchingParent(false);
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
@@ -134,6 +163,19 @@ export const TicketCreate = () => {
             if (attachments.length > 0) {
                 for (const file of attachments) {
                     await uploadFile(file, ticketId);
+                }
+            }
+
+            // Link to parent if specified
+            if (linkToParent && parentTicket) {
+                try {
+                    await Meteor.callAsync('tickets.linkAsChild', {
+                        parentTicketId: parentTicket._id,
+                        childTicketId: ticketId,
+                    });
+                } catch (linkErr) {
+                    console.error('Failed to link to parent:', linkErr);
+                    // Don't fail the whole operation if linking fails
                 }
             }
 
@@ -375,6 +417,92 @@ export const TicketCreate = () => {
                                     </button>
                                 </div>
                             ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Parent Link Option */}
+                <div className="mb-6">
+                    <div className="flex items-center mb-3">
+                        <input
+                            type="checkbox"
+                            id="linkToParent"
+                            checked={linkToParent}
+                            onChange={(e) => {
+                                setLinkToParent(e.target.checked);
+                                if (!e.target.checked) {
+                                    setParentTicket(null);
+                                    setParentTicketNumber('');
+                                }
+                            }}
+                            className="h-4 w-4 text-blue-600 rounded"
+                        />
+                        <label htmlFor="linkToParent" className="ml-2 text-sm font-medium text-gray-700">
+                            Link this ticket as a sub-ticket
+                        </label>
+                    </div>
+
+                    {linkToParent && (
+                        <div className="ml-6 space-y-3">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Parent Ticket Number
+                                </label>
+                                <div className="flex space-x-2">
+                                    <input
+                                        type="text"
+                                        value={parentTicketNumber}
+                                        onChange={(e) => setParentTicketNumber(e.target.value.toUpperCase())}
+                                        className="input-field flex-1"
+                                        placeholder="e.g., TKT-2026-0001"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={handleSearchParent}
+                                        disabled={searchingParent || !parentTicketNumber.trim()}
+                                        className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                        {searchingParent ? 'Searching...' : 'Search'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {parentTicket && (
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                    <div className="flex items-start justify-between">
+                                        <div className="flex-1">
+                                            <p className="text-sm font-medium text-blue-900">
+                                                {parentTicket.ticketNumber}: {parentTicket.title}
+                                            </p>
+                                            <div className="flex items-center space-x-3 mt-1">
+                                                <span className={`px-2 py-1 text-xs font-medium rounded ${parentTicket.status === 'Open' ? 'bg-blue-100 text-blue-800' :
+                                                        parentTicket.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
+                                                            parentTicket.status === 'Resolved' ? 'bg-green-100 text-green-800' :
+                                                                'bg-gray-100 text-gray-800'
+                                                    }`}>
+                                                    {parentTicket.status}
+                                                </span>
+                                                <span className="text-xs text-blue-700">
+                                                    {parentTicket.category} | {parentTicket.priority}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setParentTicket(null);
+                                                setParentTicketNumber('');
+                                            }}
+                                            className="ml-2 text-blue-600 hover:text-blue-800"
+                                            title="Clear"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
