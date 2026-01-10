@@ -13,6 +13,7 @@ import { OpenTickets } from './pages/OpenTickets';
 import { AssignedTickets } from './pages/AssignedTickets';
 import { KnowledgeBase } from './pages/KnowledgeBase';
 import { KBArticleDetail } from './pages/KBArticleDetail';
+import { AdminUsers } from './pages/AdminUsers';
 
 // Layouts
 import { MainLayout } from './layouts/MainLayout';
@@ -54,6 +55,7 @@ export const App = () => (
         <Route path="tickets/:id" element={<TicketDetail />} />
         <Route path="kb" element={<KnowledgeBase />} />
         <Route path="kb/:id" element={<KBArticleDetail />} />
+        <Route path="admin/users" element={<AdminUsers />} />
       </Route>
     </Routes>
   </Router>

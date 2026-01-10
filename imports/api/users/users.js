@@ -116,6 +116,106 @@ Meteor.methods({
 
         return true;
     },
+
+    async 'users.activate'(userId) {
+        check(userId, String);
+
+        if (!this.userId) {
+            throw new Meteor.Error('not-authorized');
+        }
+
+        if (!Roles.userIsInRole(this.userId, 'admin')) {
+            throw new Meteor.Error('not-authorized', 'Only admins can activate users');
+        }
+
+        await Meteor.users.updateAsync(userId, {
+            $set: {
+                'profile.isActive': true,
+            },
+        });
+
+        // Log audit
+        await AuditLogs.insertAsync({
+            userId: this.userId,
+            action: 'user_activated',
+            entityType: 'user',
+            entityId: userId,
+            createdAt: new Date(),
+        });
+
+        return true;
+    },
+
+    async 'users.changeRole'({ userId, newRole }) {
+        check(userId, String);
+        check(newRole, String);
+
+        if (!this.userId) {
+            throw new Meteor.Error('not-authorized');
+        }
+
+        if (!Roles.userIsInRole(this.userId, 'admin')) {
+            throw new Meteor.Error('not-authorized', 'Only admins can change user roles');
+        }
+
+        // Validate role
+        const validRoles = ['user', 'support', 'admin'];
+        if (!validRoles.includes(newRole)) {
+            throw new Meteor.Error('invalid-role', 'Invalid role specified');
+        }
+
+        // Get current roles
+        const user = await Meteor.users.findOneAsync(userId);
+        const currentRoles = user.roles || [];
+
+        // Remove all current roles and add new role
+        await Meteor.users.updateAsync(userId, {
+            $set: { roles: [newRole] },
+        });
+
+        // Log audit
+        await AuditLogs.insertAsync({
+            userId: this.userId,
+            action: 'user_role_changed',
+            entityType: 'user',
+            entityId: userId,
+            metadata: { oldRole: currentRoles[0], newRole },
+            createdAt: new Date(),
+        });
+
+        return true;
+    },
+
+    async 'users.resetPassword'({ userId, newPassword }) {
+        check(userId, String);
+        check(newPassword, String);
+
+        if (!this.userId) {
+            throw new Meteor.Error('not-authorized');
+        }
+
+        if (!Roles.userIsInRole(this.userId, 'admin')) {
+            throw new Meteor.Error('not-authorized', 'Only admins can reset passwords');
+        }
+
+        if (newPassword.length < 6) {
+            throw new Meteor.Error('password-too-short', 'Password must be at least 6 characters');
+        }
+
+        // Set new password
+        Accounts.setPassword(userId, newPassword);
+
+        // Log audit
+        await AuditLogs.insertAsync({
+            userId: this.userId,
+            action: 'user_password_reset',
+            entityType: 'user',
+            entityId: userId,
+            createdAt: new Date(),
+        });
+
+        return true;
+    },
 });
 
 // Publications

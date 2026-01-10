@@ -4,6 +4,13 @@ import { useTracker } from 'meteor/react-meteor-data';
 import { Link } from 'react-router-dom';
 import { Roles } from '../../api/roles/roles';
 import { Tickets } from '../../api/tickets/tickets';
+import {
+    TicketTrendsChart,
+    SLAComplianceChart,
+    CategoryDistributionChart,
+    PriorityBreakdownChart,
+    StatusDistributionChart,
+} from '../components/DashboardCharts';
 
 export const Dashboard = () => {
     const { user, userRoles, stats, isLoading } = useTracker(() => {
@@ -160,6 +167,37 @@ export const Dashboard = () => {
                             </div>
                         </>
                     )}
+                </div>
+            </div>
+
+            {/* Charts Section */}
+            <div className="mb-8">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">Analytics</h2>
+
+                {/* Ticket Trends */}
+                <div className="card mb-6">
+                    <TicketTrendsChart days={30} />
+                </div>
+
+                {/* Other Charts Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {isSupport && (
+                        <div className="card">
+                            <SLAComplianceChart />
+                        </div>
+                    )}
+
+                    <div className="card">
+                        <CategoryDistributionChart />
+                    </div>
+
+                    <div className="card">
+                        <PriorityBreakdownChart />
+                    </div>
+
+                    <div className="card">
+                        <StatusDistributionChart />
+                    </div>
                 </div>
             </div>
         </div>

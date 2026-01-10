@@ -6,6 +6,7 @@ import { AuditLogs } from '../audit-logs/audit-logs';
 import { Roles } from '../roles/roles';
 import { PendingReasons } from '../pending-reasons/pending-reasons';
 import { calculateSLADeadlines } from './sla-calculator';
+import { EmailService } from '../emails/email-service';
 
 // Generate unique ticket number
 async function generateTicketNumber() {
@@ -89,6 +90,15 @@ Meteor.methods({
             createdAt: new Date(),
         });
 
+        // Send email notification to IT Support team
+        const reporter = await Meteor.users.findOneAsync(this.userId);
+        const createdTicket = await Tickets.findOneAsync(ticketId);
+        if (reporter && createdTicket) {
+            EmailService.sendTicketCreatedEmail(createdTicket, reporter).catch(err => {
+                console.error('Error sending ticket created email:', err);
+            });
+        }
+
         return { ticketId, ticketNumber, duplicates };
     },
 
@@ -151,6 +161,16 @@ Meteor.methods({
             metadata: { ticketNumber: ticket.ticketNumber },
             createdAt: new Date(),
         });
+
+        // Send email notification to reporter
+        const reporter = await Meteor.users.findOneAsync(ticket.reporterId);
+        const assignee = await Meteor.users.findOneAsync(this.userId);
+        const updatedTicket = await Tickets.findOneAsync(ticketId);
+        if (reporter && assignee && updatedTicket) {
+            EmailService.sendTicketAssignedEmail(updatedTicket, reporter, assignee).catch(err => {
+                console.error('Error sending ticket assigned email:', err);
+            });
+        }
 
         return true;
     },
@@ -298,6 +318,23 @@ Meteor.methods({
             },
             createdAt: new Date(),
         });
+
+        // Send email notification for status change
+        const reporter = await Meteor.users.findOneAsync(ticket.reporterId);
+        const changedBy = await Meteor.users.findOneAsync(this.userId);
+        const updatedTicket = await Tickets.findOneAsync(ticketId);
+        if (reporter && changedBy && updatedTicket) {
+            EmailService.sendStatusChangedEmail(updatedTicket, reporter, ticket.status, newStatus, changedBy).catch(err => {
+                console.error('Error sending status changed email:', err);
+            });
+        }
+
+        // Send resolved email if status is Resolved
+        if (newStatus === 'Resolved' && reporter && changedBy && updatedTicket) {
+            EmailService.sendTicketResolvedEmail(updatedTicket, reporter, changedBy).catch(err => {
+                console.error('Error sending ticket resolved email:', err);
+            });
+        }
 
         return true;
     },

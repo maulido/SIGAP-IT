@@ -17,6 +17,9 @@ import { KBArticles } from '../imports/api/kb-articles/kb-articles';
 // Import custom roles utility
 import { Roles } from '../imports/api/roles/roles';
 
+// Import email configuration
+import './email-config';
+
 // Import all methods
 import '../imports/api/tickets/methods';
 import '../imports/api/comments/methods';
@@ -25,6 +28,7 @@ import '../imports/api/users/users';
 import '../imports/api/pending-reasons/server';
 import '../imports/api/ratings/server';
 import '../imports/api/kb-articles/server';
+import '../imports/api/dashboard/dashboard-stats';
 
 // Import all publications
 import '../imports/api/tickets/publications';

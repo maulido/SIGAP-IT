@@ -4,6 +4,7 @@ import { Comments } from './comments';
 import { AuditLogs } from '../audit-logs/audit-logs';
 import { Tickets } from '../tickets/tickets';
 import { Roles } from '../roles/roles';
+import { EmailService } from '../emails/email-service';
 
 Meteor.methods({
     async 'comments.add'({ ticketId, content, isInternal = false }) {
@@ -57,6 +58,17 @@ Meteor.methods({
             metadata: { ticketNumber: ticket.ticketNumber, isInternal },
             createdAt: new Date(),
         });
+
+        // Send email notification for comment (only for non-internal comments)
+        if (!isInternal) {
+            const commenter = await Meteor.users.findOneAsync(this.userId);
+            const comment = await Comments.findOneAsync(commentId);
+            if (commenter && comment) {
+                EmailService.sendCommentAddedEmail(ticket, comment, commenter).catch(err => {
+                    console.error('Error sending comment added email:', err);
+                });
+            }
+        }
 
         return commentId;
     },
