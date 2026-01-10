@@ -5,6 +5,7 @@ import { Worklogs } from '../worklogs/worklogs';
 import { AuditLogs } from '../audit-logs/audit-logs';
 import { Roles } from '../roles/roles';
 import { PendingReasons } from '../pending-reasons/pending-reasons';
+import { calculateSLADeadlines } from './sla-calculator';
 
 // Generate unique ticket number
 async function generateTicketNumber() {
@@ -58,6 +59,8 @@ Meteor.methods({
         const duplicates = await checkDuplicates(title, category, location);
 
         const ticketNumber = await generateTicketNumber();
+        const createdAt = new Date();
+        const slaDeadlines = calculateSLADeadlines(createdAt, priority);
 
         const ticketId = await Tickets.insertAsync({
             ticketNumber,
@@ -69,8 +72,11 @@ Meteor.methods({
             status: 'Open',
             reporterId: this.userId,
             attachments,
-            createdAt: new Date(),
-            updatedAt: new Date(),
+            ...slaDeadlines,
+            slaStatus: 'on-track',
+            slaPausedDuration: 0,
+            createdAt,
+            updatedAt: createdAt,
         });
 
         // Log audit
@@ -214,6 +220,48 @@ Meteor.methods({
             updateData.resolvedAt = new Date();
         } else if (newStatus === 'Closed') {
             updateData.closedAt = new Date();
+        }
+
+        // SLA Tracking
+        const { calculateActualTime, getSLAConfig } = await import('./sla-calculator.js');
+        const oldStatus = ticket.status;
+        const now = new Date();
+
+        // Track response time when moving to In Progress
+        if (newStatus === 'In Progress' && oldStatus === 'Open' && !ticket.slaResponseTime) {
+            const responseTime = calculateActualTime(
+                ticket.createdAt,
+                now,
+                ticket.slaPausedDuration || 0
+            );
+            const slaConfig = getSLAConfig(ticket.priority);
+            updateData.slaResponseTime = responseTime;
+            updateData.slaResponseMet = responseTime <= slaConfig.response;
+        }
+
+        // Start SLA pause when moving to Pending
+        if (newStatus === 'Pending') {
+            updateData.slaPausedAt = now;
+        }
+
+        // End SLA pause when moving from Pending
+        if (oldStatus === 'Pending' && newStatus !== 'Pending' && ticket.slaPausedAt) {
+            const pausedDuration = ticket.slaPausedDuration || 0;
+            const additionalPause = (now - ticket.slaPausedAt) / (1000 * 60 * 60);
+            updateData.slaPausedDuration = pausedDuration + additionalPause;
+            updateData.slaPausedAt = null;
+        }
+
+        // Track resolution time when moving to Resolved
+        if (newStatus === 'Resolved' && !ticket.slaResolutionTime) {
+            const resolutionTime = calculateActualTime(
+                ticket.createdAt,
+                now,
+                updateData.slaPausedDuration || ticket.slaPausedDuration || 0
+            );
+            const slaConfig = getSLAConfig(ticket.priority);
+            updateData.slaResolutionTime = resolutionTime;
+            updateData.slaResolutionMet = resolutionTime <= slaConfig.resolution;
         }
 
         await Tickets.updateAsync(ticketId, { $set: updateData });

@@ -33,6 +33,7 @@ import '../imports/api/users/users'; // Contains user publications
 
 // Import background jobs
 import './jobs/pending-timeout';
+import './jobs/sla-monitor';
 
 // Password hashing with bcryptjs
 const hashPassword = (password) => {

@@ -32,6 +32,17 @@ export const Tickets = new Mongo.Collection('tickets');
 //   childTicketIds: Array of String (optional, references to child Tickets),
 //   hasChildren: Boolean (default false),
 //
+//   // SLA fields
+//   slaResponseDeadline: Date (calculated on creation),
+//   slaResolutionDeadline: Date (calculated on creation),
+//   slaResponseTime: Number (hours, actual time taken),
+//   slaResolutionTime: Number (hours, actual time taken),
+//   slaResponseMet: Boolean (true if met),
+//   slaResolutionMet: Boolean (true if met),
+//   slaPausedAt: Date (when paused, e.g., Pending),
+//   slaPausedDuration: Number (total hours paused),
+//   slaStatus: String ('on-track', 'at-risk', 'breached'),
+//
 //   // Timestamps
 //   createdAt: Date,
 //   updatedAt: Date,

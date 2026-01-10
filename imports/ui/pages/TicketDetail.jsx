@@ -661,11 +661,11 @@ export const TicketDetail = () => {
                                                 </p>
                                             </div>
                                             <span className={`ml-2 px-2 py-1 text-xs font-medium rounded ${ticketFamily.parent.status === 'Open' ? 'bg-blue-100 text-blue-800' :
-                                                    ticketFamily.parent.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
-                                                        ticketFamily.parent.status === 'Pending' ? 'bg-orange-100 text-orange-800' :
-                                                            ticketFamily.parent.status === 'Resolved' ? 'bg-green-100 text-green-800' :
-                                                                ticketFamily.parent.status === 'Closed' ? 'bg-gray-100 text-gray-800' :
-                                                                    'bg-red-100 text-red-800'
+                                                ticketFamily.parent.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
+                                                    ticketFamily.parent.status === 'Pending' ? 'bg-orange-100 text-orange-800' :
+                                                        ticketFamily.parent.status === 'Resolved' ? 'bg-green-100 text-green-800' :
+                                                            ticketFamily.parent.status === 'Closed' ? 'bg-gray-100 text-gray-800' :
+                                                                'bg-red-100 text-red-800'
                                                 }`}>
                                                 {ticketFamily.parent.status}
                                             </span>
@@ -697,11 +697,11 @@ export const TicketDetail = () => {
                                                         </p>
                                                     </div>
                                                     <span className={`ml-2 px-2 py-1 text-xs font-medium rounded ${child.status === 'Open' ? 'bg-blue-100 text-blue-800' :
-                                                            child.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
-                                                                child.status === 'Pending' ? 'bg-orange-100 text-orange-800' :
-                                                                    child.status === 'Resolved' ? 'bg-green-100 text-green-800' :
-                                                                        child.status === 'Closed' ? 'bg-gray-100 text-gray-800' :
-                                                                            'bg-red-100 text-red-800'
+                                                        child.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
+                                                            child.status === 'Pending' ? 'bg-orange-100 text-orange-800' :
+                                                                child.status === 'Resolved' ? 'bg-green-100 text-green-800' :
+                                                                    child.status === 'Closed' ? 'bg-gray-100 text-gray-800' :
+                                                                        'bg-red-100 text-red-800'
                                                         }`}>
                                                         {child.status}
                                                     </span>
@@ -711,6 +711,88 @@ export const TicketDetail = () => {
                                     </div>
                                 </div>
                             )}
+                        </div>
+                    )}
+
+                    {/* SLA Status */}
+                    {ticket.slaStatus && (
+                        <div className={`card border-l-4 ${ticket.slaStatus === 'breached' ? 'border-red-500 bg-red-50' :
+                                ticket.slaStatus === 'at-risk' ? 'border-yellow-500 bg-yellow-50' :
+                                    'border-green-500 bg-green-50'
+                            }`}>
+                            <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                                SLA Status
+                            </h3>
+
+                            <div className="space-y-3">
+                                {/* Overall Status */}
+                                <div>
+                                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${ticket.slaStatus === 'breached' ? 'bg-red-100 text-red-800' :
+                                            ticket.slaStatus === 'at-risk' ? 'bg-yellow-100 text-yellow-800' :
+                                                'bg-green-100 text-green-800'
+                                        }`}>
+                                        {ticket.slaStatus === 'breached' ? '⚠️ SLA Breached' :
+                                            ticket.slaStatus === 'at-risk' ? '⏰ At Risk' :
+                                                '✅ On Track'}
+                                    </span>
+                                </div>
+
+                                {/* Response SLA */}
+                                {!ticket.slaResponseTime && ticket.slaResponseDeadline && (
+                                    <div>
+                                        <p className="text-xs font-medium text-gray-500 uppercase">Response Deadline</p>
+                                        <p className="text-sm text-gray-900 mt-1">
+                                            {moment(ticket.slaResponseDeadline).format('DD MMM YYYY HH:mm')}
+                                        </p>
+                                        <p className="text-xs text-gray-600 mt-1">
+                                            {moment(ticket.slaResponseDeadline).fromNow()}
+                                        </p>
+                                    </div>
+                                )}
+
+                                {ticket.slaResponseTime && (
+                                    <div>
+                                        <p className="text-xs font-medium text-gray-500 uppercase">Response Time</p>
+                                        <p className={`text-sm mt-1 font-medium ${ticket.slaResponseMet ? 'text-green-600' : 'text-red-600'}`}>
+                                            {ticket.slaResponseTime.toFixed(1)}h
+                                            {ticket.slaResponseMet ? ' ✓' : ' ✗'}
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* Resolution SLA */}
+                                {!ticket.slaResolutionTime && ticket.slaResolutionDeadline && (
+                                    <div>
+                                        <p className="text-xs font-medium text-gray-500 uppercase">Resolution Deadline</p>
+                                        <p className="text-sm text-gray-900 mt-1">
+                                            {moment(ticket.slaResolutionDeadline).format('DD MMM YYYY HH:mm')}
+                                        </p>
+                                        <p className="text-xs text-gray-600 mt-1">
+                                            {moment(ticket.slaResolutionDeadline).fromNow()}
+                                        </p>
+                                    </div>
+                                )}
+
+                                {ticket.slaResolutionTime && (
+                                    <div>
+                                        <p className="text-xs font-medium text-gray-500 uppercase">Resolution Time</p>
+                                        <p className={`text-sm mt-1 font-medium ${ticket.slaResolutionMet ? 'text-green-600' : 'text-red-600'}`}>
+                                            {ticket.slaResolutionTime.toFixed(1)}h
+                                            {ticket.slaResolutionMet ? ' ✓' : ' ✗'}
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* Paused Duration */}
+                                {ticket.slaPausedDuration > 0 && (
+                                    <div>
+                                        <p className="text-xs font-medium text-gray-500 uppercase">Time Paused</p>
+                                        <p className="text-sm text-gray-900 mt-1">
+                                            {ticket.slaPausedDuration.toFixed(1)}h
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
 
