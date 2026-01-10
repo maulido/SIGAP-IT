@@ -12,6 +12,7 @@ import { SLAConfigs } from '../imports/api/sla-configs/sla-configs';
 import { AuditLogs } from '../imports/api/audit-logs/audit-logs';
 import { PendingReasons } from '../imports/api/pending-reasons/pending-reasons';
 import { Ratings } from '../imports/api/ratings/ratings';
+import { KBArticles } from '../imports/api/kb-articles/kb-articles';
 
 // Import custom roles utility
 import { Roles } from '../imports/api/roles/roles';
@@ -23,6 +24,7 @@ import '../imports/api/attachments/methods';
 import '../imports/api/users/users';
 import '../imports/api/pending-reasons/server';
 import '../imports/api/ratings/server';
+import '../imports/api/kb-articles/server';
 
 // Import all publications
 import '../imports/api/tickets/publications';

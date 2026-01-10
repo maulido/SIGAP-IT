@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Meteor } from 'meteor/meteor';
 import { useNavigate, Link } from 'react-router-dom';
 import moment from 'moment';
@@ -33,6 +33,7 @@ export const TicketCreate = () => {
     const [parentTicketNumber, setParentTicketNumber] = useState('');
     const [parentTicket, setParentTicket] = useState(null);
     const [searchingParent, setSearchingParent] = useState(false);
+    const [kbRecommendations, setKbRecommendations] = useState([]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -58,6 +59,29 @@ export const TicketCreate = () => {
             }
         });
     };
+
+    // Get KB recommendations based on title and category
+    useEffect(() => {
+        if (formData.title.length > 10 && formData.category) {
+            const timer = setTimeout(async () => {
+                try {
+                    const recommendations = await Meteor.callAsync('kb.getRecommendations', {
+                        title: formData.title,
+                        description: formData.description,
+                        category: formData.category,
+                    });
+                    setKbRecommendations(recommendations || []);
+                } catch (err) {
+                    console.error('Failed to get KB recommendations:', err);
+                    setKbRecommendations([]);
+                }
+            }, 500); // Debounce 500ms
+
+            return () => clearTimeout(timer);
+        } else {
+            setKbRecommendations([]);
+        }
+    }, [formData.title, formData.description, formData.category]);
 
     const handleFileSelect = (e) => {
         const files = Array.from(e.target.files);
@@ -192,6 +216,47 @@ export const TicketCreate = () => {
                 <h1 className="text-3xl font-bold text-gray-900">Create New Ticket</h1>
                 <p className="text-gray-600 mt-1">Report a new IT issue or request</p>
             </div>
+
+            {/* KB Recommendations */}
+            {kbRecommendations.length > 0 && (
+                <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6 rounded-r-lg">
+                    <div className="flex">
+                        <div className="flex-shrink-0">
+                            <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                            </svg>
+                        </div>
+                        <div className="ml-3 flex-1">
+                            <h3 className="text-sm font-medium text-blue-800">
+                                💡 Suggested Solutions
+                            </h3>
+                            <div className="mt-2 text-sm text-blue-700">
+                                <p>These Knowledge Base articles might help solve your issue:</p>
+                            </div>
+                            <div className="mt-4 space-y-2">
+                                {kbRecommendations.map(article => (
+                                    <Link
+                                        key={article._id}
+                                        to={`/kb/${article._id}`}
+                                        target="_blank"
+                                        className="block bg-white p-3 rounded border border-blue-200 hover:border-blue-400 hover:shadow-sm transition-all"
+                                    >
+                                        <p className="text-sm font-medium text-blue-900">{article.title}</p>
+                                        <div className="flex items-center space-x-2 mt-1">
+                                            <span className="text-xs text-blue-600">{article.category}</span>
+                                            <span className="text-xs text-blue-400">•</span>
+                                            <span className="text-xs text-blue-600">{article.viewCount} views</span>
+                                        </div>
+                                    </Link>
+                                ))}
+                            </div>
+                            <p className="mt-3 text-xs text-blue-600">
+                                💡 Tip: If these articles solve your issue, you don't need to create a ticket!
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {duplicates.length > 0 && (
                 <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 rounded-r-lg">
@@ -476,9 +541,9 @@ export const TicketCreate = () => {
                                             </p>
                                             <div className="flex items-center space-x-3 mt-1">
                                                 <span className={`px-2 py-1 text-xs font-medium rounded ${parentTicket.status === 'Open' ? 'bg-blue-100 text-blue-800' :
-                                                        parentTicket.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
-                                                            parentTicket.status === 'Resolved' ? 'bg-green-100 text-green-800' :
-                                                                'bg-gray-100 text-gray-800'
+                                                    parentTicket.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
+                                                        parentTicket.status === 'Resolved' ? 'bg-green-100 text-green-800' :
+                                                            'bg-gray-100 text-gray-800'
                                                     }`}>
                                                     {parentTicket.status}
                                                 </span>
