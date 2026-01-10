@@ -175,11 +175,11 @@ Meteor.methods({
         return true;
     },
 
-    async 'tickets.changeStatus'({ ticketId, newStatus, worklog, timeSpent, pendingReasonId, pendingNotes, customTimeout }) {
+    async 'tickets.changeStatus'({ ticketId, newStatus, worklog, timeSpent, pendingReason, pendingNotes, customTimeout }) {
         check(ticketId, String);
         check(newStatus, String);
         check(worklog, String);
-        check(pendingReasonId, Match.Maybe(String));
+        check(pendingReason, Match.Maybe(String));
         check(pendingNotes, Match.Maybe(String));
         check(customTimeout, Match.Maybe(Number));
 
@@ -207,22 +207,20 @@ Meteor.methods({
 
         // Handle Pending status
         if (newStatus === 'Pending') {
-            if (!pendingReasonId) {
+            if (!pendingReason) {
                 throw new Meteor.Error('validation-error', 'Pending reason is required');
             }
 
-            const pendingReason = await PendingReasons.findOneAsync(pendingReasonId);
-            if (!pendingReason || !pendingReason.isActive) {
-                throw new Meteor.Error('not-found', 'Pending reason not found or inactive');
-            }
-
-            const timeoutHours = customTimeout || pendingReason.defaultTimeout;
+            // Using hardcoded default timeout of 24h as per implicit requirement or generic default
+            // since we removed PendingReasons lookup for now.
+            const timeoutHours = customTimeout || 24;
             const pendingTimeout = new Date();
             pendingTimeout.setHours(pendingTimeout.getHours() + timeoutHours);
 
-            updateData.pendingReason = pendingReason.reason;
-            updateData.pendingReasonId = pendingReasonId;
+            updateData.pendingReason = pendingReason;
+            // updateData.pendingReasonId = pendingReasonId; // Removed as per new requirement to hardcode strings
             updateData.pendingTimeout = pendingTimeout;
+            updateData.pendingStartedAt = new Date(); // KF-15
             updateData.pendingSetAt = new Date();
             updateData.pendingSetBy = this.userId;
             updateData.pendingNotes = pendingNotes || '';
@@ -231,9 +229,11 @@ Meteor.methods({
             updateData.pendingReason = null;
             updateData.pendingReasonId = null;
             updateData.pendingTimeout = null;
+            updateData.pendingStartedAt = null;
             updateData.pendingSetAt = null;
             updateData.pendingSetBy = null;
             updateData.pendingNotes = null;
+            updateData.lastReminderSentAt = null;
         }
 
         if (newStatus === 'Resolved') {

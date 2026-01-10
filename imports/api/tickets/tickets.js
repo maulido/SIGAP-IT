@@ -16,11 +16,13 @@ export const Tickets = new Mongo.Collection('tickets');
 //
 //   // Pending workflow fields
 //   pendingReason: String (optional),
-//   pendingReasonId: String (optional, reference to PendingReasons),
+//   pendingReasonId: String (optional, reference to PendingReasons - DEPRECATED/LEGACY),
 //   pendingTimeout: Date (optional),
-//   pendingSetAt: Date (optional),
+//   pendingStartedAt: Date (optional), // Added as per KF-15
+//   pendingSetAt: Date (optional, same as pendingStartedAt, kept for backward compatibility if needed),
 //   pendingSetBy: String (optional, userId),
 //   pendingNotes: String (optional),
+//   lastReminderSentAt: Date (optional), // Added as per KF-15 for reminders
 //
 //   // Rating fields
 //   hasRating: Boolean (default false),

@@ -6,7 +6,6 @@ import { Tickets } from '../../api/tickets/tickets';
 import { Comments } from '../../api/comments/comments';
 import { Worklogs } from '../../api/worklogs/worklogs';
 import { Attachments } from '../../api/attachments/attachments';
-import { PendingReasons } from '../../api/pending-reasons/pending-reasons';
 import { Ratings } from '../../api/ratings/ratings';
 import { Roles } from '../../api/roles/roles';
 import moment from 'moment';
@@ -40,27 +39,34 @@ export const TicketDetail = () => {
     const [error, setError] = useState('');
 
     // Pending workflow states
-    const [pendingReasonId, setPendingReasonId] = useState('');
+    const [pendingReason, setPendingReason] = useState('');
     const [pendingNotes, setPendingNotes] = useState('');
     const [customTimeout, setCustomTimeout] = useState('');
+
+    // Hardcoded reasons as per KF-15 requirement
+    const PENDING_REASONS = [
+        'Menunggu Respon User',
+        'Menunggu Vendor',
+        'Menunggu Approval',
+        'Lainnya'
+    ];
 
     // Rating states
     const [rating, setRating] = useState(0);
     const [ratingFeedback, setRatingFeedback] = useState('');
 
-    const { ticket, comments, worklogs, attachments, users, currentUser, pendingReasons, ticketRating, ticketFamily, isLoading } = useTracker(() => {
+    const { ticket, comments, worklogs, attachments, users, currentUser, ticketRating, ticketFamily, isLoading } = useTracker(() => {
         const ticketHandle = Meteor.subscribe('tickets.byId', id);
         const commentsHandle = Meteor.subscribe('comments.byTicket', id);
         const worklogsHandle = Meteor.subscribe('worklogs.byTicket', id);
         const attachmentsHandle = Meteor.subscribe('attachments.byTicket', id);
         const usersHandle = Meteor.subscribe('users.names');
-        const pendingReasonsHandle = Meteor.subscribe('pendingReasons.active');
         const ratingsHandle = Meteor.subscribe('ratings.byTicket', id);
         const familyHandle = Meteor.subscribe('tickets.family', id);
 
         const currentUser = Meteor.user();
         const ticket = Tickets.findOne(id);
-        const isLoading = !ticketHandle.ready() || !commentsHandle.ready() || !worklogsHandle.ready() || !attachmentsHandle.ready() || !usersHandle.ready() || !pendingReasonsHandle.ready() || !ratingsHandle.ready() || !familyHandle.ready();
+        const isLoading = !ticketHandle.ready() || !commentsHandle.ready() || !worklogsHandle.ready() || !attachmentsHandle.ready() || !usersHandle.ready() || !ratingsHandle.ready() || !familyHandle.ready();
 
         // Get family tickets
         let parentTicket = null;
@@ -81,7 +87,6 @@ export const TicketDetail = () => {
             worklogs: Worklogs.find({ ticketId: id }, { sort: { createdAt: 1 } }).fetch(),
             attachments: Attachments.find({ ticketId: id }, { sort: { uploadedAt: 1 } }).fetch(),
             users: Meteor.users.find().fetch(),
-            pendingReasons: PendingReasons.find({}, { sort: { reason: 1 } }).fetch(),
             ticketRating: Ratings.findOne({ ticketId: id }),
             ticketFamily: { parent: parentTicket, children: childTickets },
             currentUser,
@@ -143,7 +148,7 @@ export const TicketDetail = () => {
         }
 
         // Validate pending reason if status is Pending
-        if (newStatus === 'Pending' && !pendingReasonId) {
+        if (newStatus === 'Pending' && !pendingReason) {
             setError('Please select a pending reason');
             return;
         }
@@ -156,14 +161,14 @@ export const TicketDetail = () => {
                 ticketId: id,
                 newStatus,
                 worklog,
-                pendingReasonId: newStatus === 'Pending' ? pendingReasonId : undefined,
+                pendingReason: newStatus === 'Pending' ? pendingReason : undefined,
                 pendingNotes: newStatus === 'Pending' ? pendingNotes : undefined,
                 customTimeout: newStatus === 'Pending' && customTimeout ? parseInt(customTimeout) : undefined,
             });
             setShowStatusModal(false);
             setWorklog('');
             setNewStatus('');
-            setPendingReasonId('');
+            setPendingReason('');
             setPendingNotes('');
             setCustomTimeout('');
         } catch (err) {
@@ -882,15 +887,15 @@ export const TicketDetail = () => {
                                             Pending Reason <span className="text-red-500">*</span>
                                         </label>
                                         <select
-                                            value={pendingReasonId}
-                                            onChange={(e) => setPendingReasonId(e.target.value)}
+                                            value={pendingReason}
+                                            onChange={(e) => setPendingReason(e.target.value)}
                                             className="input-field"
                                             required
                                         >
                                             <option value="">Select a reason...</option>
-                                            {pendingReasons.map(reason => (
-                                                <option key={reason._id} value={reason._id}>
-                                                    {reason.reason} ({reason.defaultTimeout}h)
+                                            {PENDING_REASONS.map((reason, index) => (
+                                                <option key={index} value={reason}>
+                                                    {reason}
                                                 </option>
                                             ))}
                                         </select>
@@ -936,7 +941,7 @@ export const TicketDetail = () => {
                                         setShowStatusModal(false);
                                         setWorklog('');
                                         setNewStatus('');
-                                        setPendingReasonId('');
+                                        setPendingReason('');
                                         setPendingNotes('');
                                         setCustomTimeout('');
                                         setError('');

@@ -41,6 +41,9 @@ import '../imports/api/users/users'; // Contains user publications
 import './jobs/pending-timeout';
 import './jobs/sla-monitor';
 
+// Import cron jobs
+import { checkPendingTickets } from './cron/checkPendingTickets';
+
 // Password hashing with bcryptjs
 const hashPassword = (password) => {
   return bcrypt.hashSync(password, 10);
@@ -196,6 +199,11 @@ Meteor.startup(async () => {
 
   console.log('✅ SIGAP-IT Server Ready!');
   console.log('📍 Visit http://localhost:3000');
+
+  // Start cron jobs
+  Meteor.setInterval(async () => {
+    await checkPendingTickets();
+  }, 60 * 60 * 1000); // Run every hour
 
   const ticketCount = await Tickets.find().countAsync();
   const finalUserCount = await Meteor.users.find().countAsync();
