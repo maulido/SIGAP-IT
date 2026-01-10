@@ -60,6 +60,22 @@ export const MainLayout = () => {
                             >
                                 Create Ticket
                             </Link>
+                            {isSupport && (
+                                <>
+                                    <Link
+                                        to="/tickets/open"
+                                        className="border-transparent text-gray-900 hover:border-purple-500 hover:text-purple-600 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors"
+                                    >
+                                        Open Tickets
+                                    </Link>
+                                    <Link
+                                        to="/tickets/assigned"
+                                        className="border-transparent text-gray-900 hover:border-purple-500 hover:text-purple-600 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors"
+                                    >
+                                        Assigned to Me
+                                    </Link>
+                                </>
+                            )}
                             {isAdmin && (
                                 <Link
                                     to="/users"

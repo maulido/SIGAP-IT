@@ -8,6 +8,9 @@ import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { TicketCreate } from './pages/TicketCreate';
 import { TicketList } from './pages/TicketList';
+import { TicketDetail } from './pages/TicketDetail';
+import { OpenTickets } from './pages/OpenTickets';
+import { AssignedTickets } from './pages/AssignedTickets';
 
 // Layouts
 import { MainLayout } from './layouts/MainLayout';
@@ -44,6 +47,9 @@ export const App = () => (
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="tickets" element={<TicketList />} />
         <Route path="tickets/create" element={<TicketCreate />} />
+        <Route path="tickets/open" element={<OpenTickets />} />
+        <Route path="tickets/assigned" element={<AssignedTickets />} />
+        <Route path="tickets/:id" element={<TicketDetail />} />
       </Route>
     </Routes>
   </Router>

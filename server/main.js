@@ -7,8 +7,11 @@ import bcrypt from 'bcryptjs';
 import { Tickets } from '../imports/api/tickets/tickets';
 import { Worklogs } from '../imports/api/worklogs/worklogs';
 import { Comments } from '../imports/api/comments/comments';
+import { Attachments } from '../imports/api/attachments/attachments';
 import { SLAConfigs } from '../imports/api/sla-configs/sla-configs';
 import { AuditLogs } from '../imports/api/audit-logs/audit-logs';
+import { PendingReasons } from '../imports/api/pending-reasons/pending-reasons';
+import { Ratings } from '../imports/api/ratings/ratings';
 
 // Import custom roles utility
 import { Roles } from '../imports/api/roles/roles';
@@ -16,11 +19,20 @@ import { Roles } from '../imports/api/roles/roles';
 // Import all methods
 import '../imports/api/tickets/methods';
 import '../imports/api/comments/methods';
+import '../imports/api/attachments/methods';
 import '../imports/api/users/users';
+import '../imports/api/pending-reasons/server';
+import '../imports/api/ratings/server';
 
 // Import all publications
 import '../imports/api/tickets/publications';
+import '../imports/api/comments/publications';
+import '../imports/api/worklogs/publications';
+import '../imports/api/attachments/publications';
 import '../imports/api/users/users'; // Contains user publications
+
+// Import background jobs
+import './jobs/pending-timeout';
 
 // Password hashing with bcryptjs
 const hashPassword = (password) => {
@@ -129,6 +141,50 @@ Meteor.startup(async () => {
       await SLAConfigs.insertAsync(sla);
     }
     console.log('✅ Default SLA configurations created');
+  }
+
+  // Create default pending reasons
+  const pendingReasonsCount = await PendingReasons.find().countAsync();
+  if (pendingReasonsCount === 0) {
+    const adminUser = await Meteor.users.findOneAsync({ 'emails.address': 'admin@sigap-it.com' });
+
+    const defaultReasons = [
+      {
+        reason: 'Waiting for User Response',
+        description: 'Waiting for additional information from the ticket reporter',
+        defaultTimeout: 48,
+      },
+      {
+        reason: 'Waiting for Third Party',
+        description: 'Waiting for external vendor or service provider',
+        defaultTimeout: 72,
+      },
+      {
+        reason: 'Waiting for Parts/Equipment',
+        description: 'Waiting for hardware or equipment to arrive',
+        defaultTimeout: 120,
+      },
+      {
+        reason: 'Waiting for Approval',
+        description: 'Waiting for management or budget approval',
+        defaultTimeout: 24,
+      },
+      {
+        reason: 'Scheduled Maintenance',
+        description: 'Scheduled for future maintenance window',
+        defaultTimeout: 168,
+      },
+    ];
+
+    for (const reason of defaultReasons) {
+      await PendingReasons.insertAsync({
+        ...reason,
+        isActive: true,
+        createdBy: adminUser._id,
+      });
+    }
+
+    console.log('✅ Default pending reasons created');
   }
 
   console.log('✅ SIGAP-IT Server Ready!');

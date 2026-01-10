@@ -124,7 +124,7 @@ Meteor.publish('users.all', function () {
         return this.ready();
     }
 
-    if (!Roles.userIsInRole(this.userId, 'admin')) {
+    if (!Roles.userIsInRole(this.userId, ['admin', 'support'])) {
         return this.ready();
     }
 
@@ -134,6 +134,20 @@ Meteor.publish('users.all', function () {
             profile: 1,
             roles: 1,
             createdAt: 1,
+        },
+    });
+});
+
+Meteor.publish('users.names', function () {
+    if (!this.userId) {
+        return this.ready();
+    }
+
+    // All authenticated users can see basic user info for display purposes
+    return Meteor.users.find({}, {
+        fields: {
+            'profile.fullName': 1,
+            'profile.department': 1,
         },
     });
 });

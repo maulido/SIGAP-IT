@@ -1,9 +1,10 @@
 import { Meteor } from 'meteor/meteor';
-import { check } from 'meteor/check';
+import { check, Match } from 'meteor/check';
 import { Tickets } from './tickets';
 import { Worklogs } from '../worklogs/worklogs';
 import { AuditLogs } from '../audit-logs/audit-logs';
 import { Roles } from '../roles/roles';
+import { PendingReasons } from '../pending-reasons/pending-reasons';
 
 // Generate unique ticket number
 async function generateTicketNumber() {
@@ -148,10 +149,13 @@ Meteor.methods({
         return true;
     },
 
-    async 'tickets.changeStatus'({ ticketId, newStatus, worklog, timeSpent }) {
+    async 'tickets.changeStatus'({ ticketId, newStatus, worklog, timeSpent, pendingReasonId, pendingNotes, customTimeout }) {
         check(ticketId, String);
         check(newStatus, String);
         check(worklog, String);
+        check(pendingReasonId, Match.Maybe(String));
+        check(pendingNotes, Match.Maybe(String));
+        check(customTimeout, Match.Maybe(Number));
 
         if (!this.userId) {
             throw new Meteor.Error('not-authorized');
@@ -175,6 +179,37 @@ Meteor.methods({
             updatedAt: new Date(),
         };
 
+        // Handle Pending status
+        if (newStatus === 'Pending') {
+            if (!pendingReasonId) {
+                throw new Meteor.Error('validation-error', 'Pending reason is required');
+            }
+
+            const pendingReason = await PendingReasons.findOneAsync(pendingReasonId);
+            if (!pendingReason || !pendingReason.isActive) {
+                throw new Meteor.Error('not-found', 'Pending reason not found or inactive');
+            }
+
+            const timeoutHours = customTimeout || pendingReason.defaultTimeout;
+            const pendingTimeout = new Date();
+            pendingTimeout.setHours(pendingTimeout.getHours() + timeoutHours);
+
+            updateData.pendingReason = pendingReason.reason;
+            updateData.pendingReasonId = pendingReasonId;
+            updateData.pendingTimeout = pendingTimeout;
+            updateData.pendingSetAt = new Date();
+            updateData.pendingSetBy = this.userId;
+            updateData.pendingNotes = pendingNotes || '';
+        } else {
+            // Clear pending fields when moving out of Pending status
+            updateData.pendingReason = null;
+            updateData.pendingReasonId = null;
+            updateData.pendingTimeout = null;
+            updateData.pendingSetAt = null;
+            updateData.pendingSetBy = null;
+            updateData.pendingNotes = null;
+        }
+
         if (newStatus === 'Resolved') {
             updateData.resolvedAt = new Date();
         } else if (newStatus === 'Closed') {
@@ -184,7 +219,7 @@ Meteor.methods({
         await Tickets.updateAsync(ticketId, { $set: updateData });
 
         // Create worklog
-        await Worklogs.insertAsync({
+        const worklogData = {
             ticketId,
             userId: this.userId,
             fromStatus: ticket.status,
@@ -192,7 +227,14 @@ Meteor.methods({
             worklog,
             timeSpent: timeSpent || 0,
             createdAt: new Date(),
-        });
+        };
+
+        if (newStatus === 'Pending' && updateData.pendingReason) {
+            worklogData.pendingReason = updateData.pendingReason;
+            worklogData.pendingNotes = updateData.pendingNotes;
+        }
+
+        await Worklogs.insertAsync(worklogData);
 
         // Log audit
         await AuditLogs.insertAsync({
@@ -204,6 +246,7 @@ Meteor.methods({
                 ticketNumber: ticket.ticketNumber,
                 fromStatus: ticket.status,
                 toStatus: newStatus,
+                pendingReason: newStatus === 'Pending' ? updateData.pendingReason : undefined,
             },
             createdAt: new Date(),
         });
@@ -217,5 +260,243 @@ Meteor.methods({
         check(location, String);
 
         return await checkDuplicates(title, category, location);
+    },
+
+    async 'tickets.reopen'({ ticketId, reason }) {
+        check(ticketId, String);
+        check(reason, String);
+
+        if (!this.userId) {
+            throw new Meteor.Error('not-authorized');
+        }
+
+        const ticket = await Tickets.findOneAsync(ticketId);
+        if (!ticket) {
+            throw new Meteor.Error('not-found', 'Ticket not found');
+        }
+
+        // Only ticket reporter can reopen
+        if (ticket.reporterId !== this.userId) {
+            throw new Meteor.Error('not-authorized', 'Only the ticket reporter can reopen');
+        }
+
+        // Can only reopen Resolved or Closed tickets
+        if (!['Resolved', 'Closed'].includes(ticket.status)) {
+            throw new Meteor.Error('invalid-status', 'Only Resolved or Closed tickets can be reopened');
+        }
+
+        // Check time limit (7 days)
+        const statusChangeDate = ticket.resolvedAt || ticket.closedAt;
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+        if (statusChangeDate < sevenDaysAgo) {
+            throw new Meteor.Error('time-expired', 'Ticket can only be reopened within 7 days');
+        }
+
+        if (reason.length < 10) {
+            throw new Meteor.Error('invalid-reason', 'Reason must be at least 10 characters');
+        }
+
+        await Tickets.updateAsync(ticketId, {
+            $set: {
+                status: 'Open',
+                assignedToId: null,
+                updatedAt: new Date(),
+            },
+            $unset: {
+                resolvedAt: '',
+                closedAt: '',
+            },
+        });
+
+        // Create worklog
+        await Worklogs.insertAsync({
+            ticketId,
+            userId: this.userId,
+            fromStatus: ticket.status,
+            toStatus: 'Open',
+            worklog: `Ticket reopened. Reason: ${reason}`,
+            createdAt: new Date(),
+        });
+
+        // Log audit
+        await AuditLogs.insertAsync({
+            userId: this.userId,
+            action: 'ticket_reopened',
+            entityType: 'ticket',
+            entityId: ticketId,
+            metadata: { ticketNumber: ticket.ticketNumber, reason },
+            createdAt: new Date(),
+        });
+
+        return true;
+    },
+
+    async 'tickets.linkAsChild'({ parentTicketId, childTicketId }) {
+        check(parentTicketId, String);
+        check(childTicketId, String);
+
+        if (!this.userId) {
+            throw new Meteor.Error('not-authorized');
+        }
+
+        if (!Roles.userIsInRole(this.userId, ['support', 'admin'])) {
+            throw new Meteor.Error('not-authorized', 'Only IT Support can link tickets');
+        }
+
+        const parentTicket = await Tickets.findOneAsync(parentTicketId);
+        const childTicket = await Tickets.findOneAsync(childTicketId);
+
+        if (!parentTicket || !childTicket) {
+            throw new Meteor.Error('not-found', 'Ticket not found');
+        }
+
+        // Prevent circular references
+        if (parentTicketId === childTicketId) {
+            throw new Meteor.Error('invalid-link', 'Cannot link ticket to itself');
+        }
+
+        // Prevent linking if child already has a parent
+        if (childTicket.parentTicketId) {
+            throw new Meteor.Error('already-linked', 'Child ticket already has a parent');
+        }
+
+        // Prevent linking if parent is already a child
+        if (parentTicket.parentTicketId) {
+            throw new Meteor.Error('invalid-link', 'Parent ticket is already a child of another ticket');
+        }
+
+        // Update child ticket
+        await Tickets.updateAsync(childTicketId, {
+            $set: {
+                parentTicketId,
+                parentTicketNumber: parentTicket.ticketNumber,
+                updatedAt: new Date(),
+            },
+        });
+
+        // Update parent ticket
+        await Tickets.updateAsync(parentTicketId, {
+            $addToSet: { childTicketIds: childTicketId },
+            $set: {
+                hasChildren: true,
+                updatedAt: new Date(),
+            },
+        });
+
+        // Create worklog for both tickets
+        await Worklogs.insertAsync({
+            ticketId: childTicketId,
+            userId: this.userId,
+            fromStatus: childTicket.status,
+            toStatus: childTicket.status,
+            worklog: `Linked as child of ticket ${parentTicket.ticketNumber}`,
+            createdAt: new Date(),
+        });
+
+        await Worklogs.insertAsync({
+            ticketId: parentTicketId,
+            userId: this.userId,
+            fromStatus: parentTicket.status,
+            toStatus: parentTicket.status,
+            worklog: `Added child ticket ${childTicket.ticketNumber}`,
+            createdAt: new Date(),
+        });
+
+        return { success: true };
+    },
+
+    async 'tickets.unlinkChild'({ parentTicketId, childTicketId }) {
+        check(parentTicketId, String);
+        check(childTicketId, String);
+
+        if (!this.userId) {
+            throw new Meteor.Error('not-authorized');
+        }
+
+        if (!Roles.userIsInRole(this.userId, ['support', 'admin'])) {
+            throw new Meteor.Error('not-authorized', 'Only IT Support can unlink tickets');
+        }
+
+        const parentTicket = await Tickets.findOneAsync(parentTicketId);
+        const childTicket = await Tickets.findOneAsync(childTicketId);
+
+        if (!parentTicket || !childTicket) {
+            throw new Meteor.Error('not-found', 'Ticket not found');
+        }
+
+        // Update child ticket
+        await Tickets.updateAsync(childTicketId, {
+            $unset: {
+                parentTicketId: '',
+                parentTicketNumber: '',
+            },
+            $set: {
+                updatedAt: new Date(),
+            },
+        });
+
+        // Update parent ticket
+        await Tickets.updateAsync(parentTicketId, {
+            $pull: { childTicketIds: childTicketId },
+            $set: {
+                updatedAt: new Date(),
+            },
+        });
+
+        // Check if parent still has children
+        const updatedParent = await Tickets.findOneAsync(parentTicketId);
+        if (!updatedParent.childTicketIds || updatedParent.childTicketIds.length === 0) {
+            await Tickets.updateAsync(parentTicketId, {
+                $set: { hasChildren: false },
+            });
+        }
+
+        // Create worklog entries
+        await Worklogs.insertAsync({
+            ticketId: childTicketId,
+            userId: this.userId,
+            fromStatus: childTicket.status,
+            toStatus: childTicket.status,
+            worklog: `Unlinked from parent ticket ${parentTicket.ticketNumber}`,
+            createdAt: new Date(),
+        });
+
+        await Worklogs.insertAsync({
+            ticketId: parentTicketId,
+            userId: this.userId,
+            fromStatus: parentTicket.status,
+            toStatus: parentTicket.status,
+            worklog: `Removed child ticket ${childTicket.ticketNumber}`,
+            createdAt: new Date(),
+        });
+
+        return { success: true };
+    },
+
+    async 'tickets.searchByNumber'(ticketNumber) {
+        check(ticketNumber, String);
+
+        if (!this.userId) {
+            throw new Meteor.Error('not-authorized');
+        }
+
+        const ticket = await Tickets.findOneAsync({
+            ticketNumber: ticketNumber.toUpperCase()
+        });
+
+        if (!ticket) {
+            return null;
+        }
+
+        return {
+            _id: ticket._id,
+            ticketNumber: ticket.ticketNumber,
+            title: ticket.title,
+            status: ticket.status,
+            priority: ticket.priority,
+            category: ticket.category,
+        };
     },
 });
