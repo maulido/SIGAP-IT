@@ -14,6 +14,7 @@ import { AssignedTickets } from './pages/AssignedTickets';
 import { KnowledgeBase } from './pages/KnowledgeBase';
 import { KBArticleDetail } from './pages/KBArticleDetail';
 import { AdminUsers } from './pages/AdminUsers';
+import { Reports } from './pages/Reports';
 
 // Layouts
 import { MainLayout } from './layouts/MainLayout';
@@ -56,6 +57,7 @@ export const App = () => (
         <Route path="kb" element={<KnowledgeBase />} />
         <Route path="kb/:id" element={<KBArticleDetail />} />
         <Route path="admin/users" element={<AdminUsers />} />
+        <Route path="reports" element={<Reports />} />
       </Route>
     </Routes>
   </Router>

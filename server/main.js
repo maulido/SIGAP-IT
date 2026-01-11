@@ -30,6 +30,7 @@ import '../imports/api/pending-reasons/server';
 import '../imports/api/ratings/server';
 import '../imports/api/kb-articles/server';
 import '../imports/api/dashboard/dashboard-stats';
+import '../imports/api/reports/reports-methods';
 
 // Import all publications
 import '../imports/api/tickets/publications';
