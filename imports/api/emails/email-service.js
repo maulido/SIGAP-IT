@@ -159,4 +159,50 @@ export const EmailService = {
             html: template.html,
         });
     },
+
+    /**
+     * Send SLA Warning notification (75% threshold)
+     */
+    async sendSLAWarningEmail(ticket, escalation, recipientIds, timeRemaining) {
+        const recipients = await Meteor.users.find({
+            _id: { $in: recipientIds }
+        }).fetchAsync();
+
+        const template = emailTemplates.slaWarning(ticket, escalation, timeRemaining);
+
+        for (const user of recipients) {
+            const email = user.emails?.[0]?.address;
+            if (email) {
+                await this.sendEmail({
+                    to: email,
+                    subject: template.subject,
+                    text: template.text,
+                    html: template.html,
+                });
+            }
+        }
+    },
+
+    /**
+     * Send SLA Critical notification (90% threshold)
+     */
+    async sendSLACriticalEmail(ticket, escalation, recipientIds, timeRemaining) {
+        const recipients = await Meteor.users.find({
+            _id: { $in: recipientIds }
+        }).fetchAsync();
+
+        const template = emailTemplates.slaCritical(ticket, escalation, timeRemaining);
+
+        for (const user of recipients) {
+            const email = user.emails?.[0]?.address;
+            if (email) {
+                await this.sendEmail({
+                    to: email,
+                    subject: template.subject,
+                    text: template.text,
+                    html: template.html,
+                });
+            }
+        }
+    },
 };

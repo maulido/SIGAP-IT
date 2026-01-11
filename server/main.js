@@ -14,6 +14,7 @@ import { AuditLogs } from '../imports/api/audit-logs/audit-logs';
 import { PendingReasons } from '../imports/api/pending-reasons/pending-reasons';
 import { Ratings } from '../imports/api/ratings/ratings';
 import { KBArticles } from '../imports/api/kb-articles/kb-articles';
+import { Escalations } from '../imports/api/escalations/escalations';
 
 // Import custom roles utility
 import { Roles } from '../imports/api/roles/roles';
@@ -31,6 +32,7 @@ import '../imports/api/ratings/server';
 import '../imports/api/kb-articles/server';
 import '../imports/api/dashboard/dashboard-stats';
 import '../imports/api/reports/reports-methods';
+import '../imports/api/escalations/escalation-methods';
 
 // Import all publications
 import '../imports/api/tickets/publications';
@@ -38,10 +40,12 @@ import '../imports/api/comments/publications';
 import '../imports/api/worklogs/publications';
 import '../imports/api/attachments/publications';
 import '../imports/api/users/users'; // Contains user publications
+import '../imports/api/escalations/publications';
 
 // Import background jobs
 import './jobs/pending-timeout';
 import './jobs/sla-monitor';
+import './jobs/sla-escalation';
 
 // Password hashing with bcryptjs
 const hashPassword = (password) => {
