@@ -11,6 +11,7 @@ import {
     PriorityBreakdownChart,
     StatusDistributionChart,
 } from '../components/DashboardCharts';
+import { EscalationMonitor } from '../components/EscalationMonitor';
 
 export const Dashboard = () => {
     const { user, userRoles, stats, isLoading } = useTracker(() => {
@@ -65,6 +66,9 @@ export const Dashboard = () => {
                     Welcome back, {user.profile?.fullName || 'User'}!
                 </p>
             </div>
+
+            {/* SLA Escalation Monitor (Only visible to Support/Admin) */}
+            {isSupport && <EscalationMonitor />}
 
             {/* Quick Actions */}
             <div className="mb-8">

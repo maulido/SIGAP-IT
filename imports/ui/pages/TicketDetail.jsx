@@ -9,7 +9,58 @@ import { Attachments } from '../../api/attachments/attachments';
 import { PendingReasons } from '../../api/pending-reasons/pending-reasons';
 import { Ratings } from '../../api/ratings/ratings';
 import { Roles } from '../../api/roles/roles';
+import { Escalations } from '../../api/escalations/escalations';
 import moment from 'moment';
+
+const EscalationBanner = ({ escalations }) => {
+    try {
+        if (!escalations || !Array.isArray(escalations) || escalations.length === 0) return null;
+
+        console.log('Rendering EscalationBanner', escalations);
+
+        // Copy and sort
+        const sortedEscalations = [...escalations].sort((a, b) => {
+            const levelA = a.escalationLevel || 0;
+            const levelB = b.escalationLevel || 0;
+            return levelB - levelA;
+        });
+
+        const activeEscalation = sortedEscalations[0];
+        if (!activeEscalation) return null;
+
+        const isCritical = activeEscalation.escalationLevel === 2;
+
+        return (
+            <div className={`mb-6 border-l-4 p-4 rounded-r-lg shadow-sm ${isCritical ? 'bg-red-50 border-red-600' : 'bg-orange-50 border-orange-500'
+                }`}>
+                <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                        <span className="text-2xl mr-3">{isCritical ? '🚨' : '⚠️'}</span>
+                    </div>
+                    <div>
+                        <h3 className={`text-lg font-bold ${isCritical ? 'text-red-800' : 'text-orange-800'
+                            }`}>
+                            {isCritical ? 'CRITICAL SLA ESCALATION' : 'SLA Warning'}
+                        </h3>
+                        <p className={`text-sm ${isCritical ? 'text-red-700' : 'text-orange-700'
+                            }`}>
+                            This ticket has used <strong>{activeEscalation.percentageUsed}%</strong> of its SLA time.
+                            {activeEscalation.escalatedAt && (
+                                <span> Escalated {moment(activeEscalation.escalatedAt).fromNow()}.</span>
+                            )}
+                            {!activeEscalation.acknowledged && (
+                                <span className="font-bold ml-1">Requires immediate attention.</span>
+                            )}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
+    } catch (err) {
+        console.error('Error in EscalationBanner:', err);
+        return null;
+    }
+};
 
 const STATUS_COLORS = {
     'Open': 'bg-blue-100 text-blue-800',
@@ -29,6 +80,13 @@ const PRIORITY_COLORS = {
 
 export const TicketDetail = () => {
     const { id } = useParams();
+    console.log('TicketDetail mounting', { id, Escalations });
+
+    // Safety check for imports
+    if (!Escalations) {
+        console.error('CRITICAL: Escalations import is undefined');
+    }
+
     const navigate = useNavigate();
     const [comment, setComment] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -48,45 +106,53 @@ export const TicketDetail = () => {
     const [rating, setRating] = useState(0);
     const [ratingFeedback, setRatingFeedback] = useState('');
 
-    const { ticket, comments, worklogs, attachments, users, currentUser, pendingReasons, ticketRating, ticketFamily, isLoading } = useTracker(() => {
-        const ticketHandle = Meteor.subscribe('tickets.byId', id);
-        const commentsHandle = Meteor.subscribe('comments.byTicket', id);
-        const worklogsHandle = Meteor.subscribe('worklogs.byTicket', id);
-        const attachmentsHandle = Meteor.subscribe('attachments.byTicket', id);
-        const usersHandle = Meteor.subscribe('users.names');
-        const pendingReasonsHandle = Meteor.subscribe('pendingReasons.active');
-        const ratingsHandle = Meteor.subscribe('ratings.byTicket', id);
-        const familyHandle = Meteor.subscribe('tickets.family', id);
+    const { ticket, comments, worklogs, attachments, users, currentUser, pendingReasons, ticketRating, ticketFamily, isLoading, escalations } = useTracker(() => {
+        try {
+            const ticketHandle = Meteor.subscribe('tickets.byId', id);
+            const commentsHandle = Meteor.subscribe('comments.byTicket', id);
+            const worklogsHandle = Meteor.subscribe('worklogs.byTicket', id);
+            const attachmentsHandle = Meteor.subscribe('attachments.byTicket', id);
+            const usersHandle = Meteor.subscribe('users.names');
+            const pendingReasonsHandle = Meteor.subscribe('pendingReasons.active');
+            const ratingsHandle = Meteor.subscribe('ratings.byTicket', id);
+            const familyHandle = Meteor.subscribe('tickets.family', id);
+            // Default to empty array if Escalations undefined to prevent crash
+            const escalationsHandle = Escalations ? Meteor.subscribe('escalations.byTicket', id) : { ready: () => true };
 
-        const currentUser = Meteor.user();
-        const ticket = Tickets.findOne(id);
-        const isLoading = !ticketHandle.ready() || !commentsHandle.ready() || !worklogsHandle.ready() || !attachmentsHandle.ready() || !usersHandle.ready() || !pendingReasonsHandle.ready() || !ratingsHandle.ready() || !familyHandle.ready();
+            const currentUser = Meteor.user();
+            const ticket = Tickets.findOne(id);
+            const isLoading = !ticketHandle.ready() || !commentsHandle.ready() || !worklogsHandle.ready() || !attachmentsHandle.ready() || !usersHandle.ready() || !pendingReasonsHandle.ready() || !ratingsHandle.ready() || !familyHandle.ready() || !escalationsHandle.ready();
 
-        // Get family tickets
-        let parentTicket = null;
-        let childTickets = [];
+            // Get family tickets
+            let parentTicket = null;
+            let childTickets = [];
 
-        if (ticket && familyHandle.ready()) {
-            if (ticket.parentTicketId) {
-                parentTicket = Tickets.findOne(ticket.parentTicketId);
+            if (ticket && familyHandle.ready()) {
+                if (ticket.parentTicketId) {
+                    parentTicket = Tickets.findOne(ticket.parentTicketId);
+                }
+                if (ticket.childTicketIds && ticket.childTicketIds.length > 0) {
+                    childTickets = Tickets.find({ _id: { $in: ticket.childTicketIds } }).fetch();
+                }
             }
-            if (ticket.childTicketIds && ticket.childTicketIds.length > 0) {
-                childTickets = Tickets.find({ _id: { $in: ticket.childTicketIds } }).fetch();
-            }
+
+            return {
+                ticket,
+                comments: Comments.find({ ticketId: id }, { sort: { createdAt: 1 } }).fetch(),
+                worklogs: Worklogs.find({ ticketId: id }, { sort: { createdAt: 1 } }).fetch(),
+                attachments: Attachments.find({ ticketId: id }, { sort: { uploadedAt: 1 } }).fetch(),
+                users: Meteor.users.find().fetch(),
+                pendingReasons: PendingReasons.find({}, { sort: { reason: 1 } }).fetch(),
+                ticketRating: Ratings.findOne({ ticketId: id }),
+                ticketFamily: { parent: parentTicket, children: childTickets },
+                escalations: Escalations ? Escalations.find({ ticketId: id }).fetch() : [],
+                currentUser,
+                isLoading,
+            };
+        } catch (err) {
+            console.error('Error in TicketDetail useTracker:', err);
+            return { isLoading: true };
         }
-
-        return {
-            ticket,
-            comments: Comments.find({ ticketId: id }, { sort: { createdAt: 1 } }).fetch(),
-            worklogs: Worklogs.find({ ticketId: id }, { sort: { createdAt: 1 } }).fetch(),
-            attachments: Attachments.find({ ticketId: id }, { sort: { uploadedAt: 1 } }).fetch(),
-            users: Meteor.users.find().fetch(),
-            pendingReasons: PendingReasons.find({}, { sort: { reason: 1 } }).fetch(),
-            ticketRating: Ratings.findOne({ ticketId: id }),
-            ticketFamily: { parent: parentTicket, children: childTickets },
-            currentUser,
-            isLoading,
-        };
     });
 
     // Use currentUser.roles directly instead of Roles.getRolesForUser
@@ -348,8 +414,10 @@ export const TicketDetail = () => {
                 </div>
             )}
 
+            {/* Escalation Banner */}
+            <EscalationBanner escalations={ticket?.status !== 'Resolved' && ticket?.status !== 'Closed' ? escalations : []} />
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Main Content */}
                 <div className="lg:col-span-2 space-y-6">
                     {/* Description */}
                     <div className="card">
@@ -358,32 +426,13 @@ export const TicketDetail = () => {
                     </div>
 
                     {/* Attachments */}
-                    {attachments.length > 0 && (
+                    {attachments && attachments.length > 0 && (
                         <div className="card">
                             <h3 className="text-lg font-semibold text-gray-900 mb-3">Attachments</h3>
                             <div className="space-y-2">
                                 {attachments.map(attachment => (
-                                    <div
-                                        key={attachment._id}
-                                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100"
-                                    >
-                                        <div className="flex items-center space-x-3">
-                                            <svg className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                                            </svg>
-                                            <div>
-                                                <p className="text-sm font-medium text-gray-900">{attachment.fileName}</p>
-                                                <p className="text-xs text-gray-500">
-                                                    {(attachment.fileSize / 1024).toFixed(2)} KB • Uploaded by {getUserName(attachment.uploadedBy)}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <button
-                                            onClick={() => downloadAttachment(attachment)}
-                                            className="text-primary-600 hover:text-primary-700 text-sm font-medium"
-                                        >
-                                            Download
-                                        </button>
+                                    <div key={attachment._id} className="p-3 bg-gray-50 rounded-lg">
+                                        <p className="text-sm font-medium">{attachment.fileName}</p>
                                     </div>
                                 ))}
                             </div>
@@ -394,20 +443,16 @@ export const TicketDetail = () => {
                     {(isReporter || isSupport) && ticket.status !== 'Closed' && (
                         <div className="card">
                             <label className="block">
-                                <span className="text-sm font-medium text-gray-700">Add Attachment</span>
-                                <input
-                                    type="file"
-                                    onChange={handleFileUpload}
-                                    disabled={isSubmitting}
-                                    className="mt-1 block w-full text-sm text-gray-500
-                                        file:mr-4 file:py-2 file:px-4
-                                        file:rounded-lg file:border-0
-                                        file:text-sm file:font-semibold
-                                        file:bg-primary-50 file:text-primary-700
-                                        hover:file:bg-primary-100
-                                        disabled:opacity-50"
-                                />
+                                <span className="sr-only">Choose file</span>
+                                <input type="file" onChange={handleFileUpload} className="block w-full text-sm text-gray-500
+                                    file:mr-4 file:py-2 file:px-4
+                                    file:rounded-full file:border-0
+                                    file:text-sm file:font-semibold
+                                    file:bg-blue-50 file:text-blue-700
+                                    hover:file:bg-blue-100
+                                " />
                             </label>
+                            {isUploading && <p className="text-sm text-gray-500 mt-2">Uploading...</p>}
                         </div>
                     )}
 
@@ -416,39 +461,42 @@ export const TicketDetail = () => {
                         <h3 className="text-lg font-semibold text-gray-900 mb-4">Activity Timeline</h3>
                         <div className="space-y-4">
                             {timeline.map((item, index) => (
-                                <div key={`${item.type}-${item._id}`} className="flex space-x-3">
-                                    <div className="flex-shrink-0">
+                                <div key={`${item.type}-${item._id}`} className="flex items-start space-x-3">
+                                    <div className="flex-shrink-0 mt-0.5">
                                         {item.type === 'comment' ? (
-                                            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                                                <svg className="h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                                                </svg>
-                                            </div>
+                                            <div className="h-2 w-2 rounded-full bg-blue-400"></div>
                                         ) : (
-                                            <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center">
-                                                <svg className="h-4 w-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                                </svg>
-                                            </div>
+                                            <div className="h-2 w-2 rounded-full bg-gray-400"></div>
                                         )}
                                     </div>
-                                    <div className="flex-1 bg-gray-50 rounded-lg p-4">
-                                        <div className="flex items-center justify-between mb-1">
-                                            <p className="text-sm font-medium text-gray-900">
-                                                {getUserName(item.userId)}
-                                            </p>
-                                            <p className="text-xs text-gray-500">
-                                                {moment(item.createdAt).format('MMM D, YYYY h:mm A')}
-                                            </p>
-                                        </div>
+                                    <div className="flex-1">
                                         {item.type === 'comment' ? (
-                                            <p className="text-sm text-gray-700 whitespace-pre-wrap">{item.content}</p>
+                                            <div>
+                                                <div className="flex items-center space-x-2">
+                                                    <span className="font-semibold text-gray-900">{getUserName(item.userId || item.authorId)}</span>
+                                                    <span className="text-gray-400 text-sm">{moment(item.createdAt).fromNow()}</span>
+                                                </div>
+                                                <p className="mt-1 text-gray-700">{item.content}</p>
+                                            </div>
                                         ) : (
                                             <div>
-                                                <p className="text-xs text-gray-600 mb-1">
-                                                    Status changed: <span className="font-medium">{item.fromStatus}</span> → <span className="font-medium">{item.toStatus}</span>
-                                                </p>
-                                                <p className="text-sm text-gray-700 whitespace-pre-wrap">{item.worklog}</p>
+                                                <div className="flex items-center space-x-2">
+                                                    <span className="font-semibold text-gray-900">{getUserName(item.performedBy)}</span>
+                                                    <span className="text-gray-500">changed status</span>
+                                                    <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${STATUS_COLORS[item.fromStatus]}`}>
+                                                        {item.fromStatus}
+                                                    </span>
+                                                    <span className="text-gray-500">→</span>
+                                                    <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${STATUS_COLORS[item.toStatus]}`}>
+                                                        {item.toStatus}
+                                                    </span>
+                                                    <span className="text-gray-400 text-sm">{moment(item.createdAt).fromNow()}</span>
+                                                </div>
+                                                {item.worklog && (
+                                                    <p className="mt-1 text-gray-600 text-sm ml-4 border-l-2 border-gray-200 pl-3">
+                                                        {item.worklog}
+                                                    </p>
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -456,7 +504,6 @@ export const TicketDetail = () => {
                             ))}
                         </div>
                     </div>
-
                     {/* Add Comment */}
                     {(isReporter || isSupport) && ticket.status !== 'Closed' && (
                         <div className="card">
@@ -465,15 +512,15 @@ export const TicketDetail = () => {
                                 <textarea
                                     value={comment}
                                     onChange={(e) => setComment(e.target.value)}
-                                    rows={4}
-                                    className="input-field"
-                                    placeholder="Type your comment here..."
-                                    disabled={isSubmitting}
+                                    rows={3}
+                                    className="input-field mb-3"
+                                    placeholder="Add a comment... (use @username to mention)"
+                                    required
                                 />
-                                <div className="mt-3 flex justify-end">
+                                <div className="flex justify-end">
                                     <button
                                         type="submit"
-                                        disabled={isSubmitting || !comment.trim()}
+                                        disabled={isSubmitting}
                                         className="btn-primary"
                                     >
                                         {isSubmitting ? 'Posting...' : 'Post Comment'}
@@ -483,65 +530,39 @@ export const TicketDetail = () => {
                         </div>
                     )}
 
-                    {/* Rating Section - Show for reporter on Resolved/Closed tickets without rating */}
+                    {/* Rating Section */}
                     {isReporter && ['Resolved', 'Closed'].includes(ticket.status) && !ticket.hasRating && !ticketRating && (
                         <div className="card">
                             <h3 className="text-lg font-semibold text-gray-900 mb-3">Rate This Ticket</h3>
-                            <p className="text-sm text-gray-600 mb-4">
-                                How satisfied are you with the resolution of this ticket?
-                            </p>
-
+                            <p className="text-sm text-gray-600 mb-4">Please rate your experience with this support ticket.</p>
                             <form onSubmit={handleSubmitRating}>
-                                {/* Star Rating */}
                                 <div className="mb-4">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Rating <span className="text-red-500">*</span>
-                                    </label>
-                                    <div className="flex items-center space-x-2">
-                                        {[1, 2, 3, 4, 5].map(star => (
+                                    <div className="flex space-x-2">
+                                        {[1, 2, 3, 4, 5].map((star) => (
                                             <button
                                                 key={star}
                                                 type="button"
                                                 onClick={() => setRating(star)}
-                                                className="focus:outline-none transition-transform hover:scale-110"
+                                                className="focus:outline-none"
                                             >
-                                                <svg
-                                                    className={`h-8 w-8 ${star <= rating
-                                                        ? 'text-yellow-400 fill-current'
-                                                        : 'text-gray-300'
-                                                        }`}
-                                                    viewBox="0 0 20 20"
-                                                >
+                                                <svg className={`h-8 w-8 ${star <= rating ? 'text-yellow-400' : 'text-gray-300'}`} viewBox="0 0 20 20" fill="currentColor">
                                                     <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                                                 </svg>
                                             </button>
                                         ))}
-                                        <span className="ml-2 text-sm text-gray-600">
-                                            {rating > 0 ? `${rating} star${rating > 1 ? 's' : ''}` : 'Select rating'}
-                                        </span>
                                     </div>
                                 </div>
-
-                                {/* Feedback */}
                                 <div className="mb-4">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Feedback (Optional)
-                                    </label>
                                     <textarea
                                         value={ratingFeedback}
                                         onChange={(e) => setRatingFeedback(e.target.value)}
-                                        rows={4}
+                                        rows={3}
                                         className="input-field"
-                                        placeholder="Share your experience or suggestions for improvement..."
+                                        placeholder="Feedback (Optional)"
                                     />
                                 </div>
-
                                 <div className="flex justify-end">
-                                    <button
-                                        type="submit"
-                                        disabled={isSubmitting || rating === 0}
-                                        className="btn-primary"
-                                    >
+                                    <button type="submit" disabled={isSubmitting} className="btn-primary">
                                         {isSubmitting ? 'Submitting...' : 'Submit Rating'}
                                     </button>
                                 </div>
@@ -549,26 +570,17 @@ export const TicketDetail = () => {
                         </div>
                     )}
 
-                    {/* Display Rating - Show if ticket has rating */}
+                    {/* Display Rating */}
                     {ticketRating && (
                         <div className="card">
                             <h3 className="text-lg font-semibold text-gray-900 mb-3">Customer Rating</h3>
-                            <div className="flex items-center mb-3">
-                                {[1, 2, 3, 4, 5].map(star => (
-                                    <svg
-                                        key={star}
-                                        className={`h-6 w-6 ${star <= ticketRating.rating
-                                            ? 'text-yellow-400 fill-current'
-                                            : 'text-gray-300'
-                                            }`}
-                                        viewBox="0 0 20 20"
-                                    >
+                            <div className="flex items-center mb-2">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                    <svg key={star} className={`h-5 w-5 ${star <= ticketRating.rating ? 'text-yellow-400' : 'text-gray-300'}`} viewBox="0 0 20 20" fill="currentColor">
                                         <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                                     </svg>
                                 ))}
-                                <span className="ml-2 text-lg font-semibold text-gray-900">
-                                    {ticketRating.rating}/5
-                                </span>
+                                <span className="ml-2 text-lg font-semibold text-gray-900">{ticketRating.rating}/5</span>
                             </div>
                             {ticketRating.feedback && (
                                 <div className="bg-gray-50 rounded-lg p-3 mb-3">
@@ -581,220 +593,225 @@ export const TicketDetail = () => {
                             </p>
                         </div>
                     )}
-                </div>
-
+                </div >
                 {/* Sidebar */}
-                <div className="space-y-6">
+                <div className="space-y-6" >
                     {/* Pending Information - Show only when status is Pending */}
-                    {ticket.status === 'Pending' && ticket.pendingReason && (
-                        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg">
-                            <div className="flex items-start">
-                                <div className="flex-shrink-0">
-                                    <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                                    </svg>
-                                </div>
-                                <div className="ml-3 flex-1">
-                                    <h3 className="text-sm font-medium text-yellow-800 mb-2">
-                                        ⏸️ Pending Information
-                                    </h3>
-                                    <div className="text-sm text-yellow-700 space-y-2">
-                                        <div>
-                                            <p className="font-medium">Reason:</p>
-                                            <p>{ticket.pendingReason}</p>
-                                        </div>
-                                        {ticket.pendingNotes && (
+                    {
+                        ticket.status === 'Pending' && ticket.pendingReason && (
+                            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg">
+                                <div className="flex items-start">
+                                    <div className="flex-shrink-0">
+                                        <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                                        </svg>
+                                    </div>
+                                    <div className="ml-3 flex-1">
+                                        <h3 className="text-sm font-medium text-yellow-800 mb-2">
+                                            ⏸️ Pending Information
+                                        </h3>
+                                        <div className="text-sm text-yellow-700 space-y-2">
                                             <div>
-                                                <p className="font-medium">Notes:</p>
-                                                <p className="whitespace-pre-wrap">{ticket.pendingNotes}</p>
+                                                <p className="font-medium">Reason:</p>
+                                                <p>{ticket.pendingReason}</p>
                                             </div>
-                                        )}
-                                        <div>
-                                            <p className="font-medium">Set:</p>
-                                            <p>{moment(ticket.pendingSetAt).format('DD MMM YYYY HH:mm')}</p>
-                                        </div>
-                                        <div>
-                                            <p className="font-medium">Expires:</p>
-                                            <p>{moment(ticket.pendingTimeout).format('DD MMM YYYY HH:mm')}</p>
-                                        </div>
-                                        <div>
-                                            <p className="font-medium">Time Remaining:</p>
-                                            <p className={moment(ticket.pendingTimeout).isBefore(moment()) ? 'text-red-600 font-semibold' : ''}>
-                                                {moment(ticket.pendingTimeout).fromNow()}
-                                                {moment(ticket.pendingTimeout).isBefore(moment()) && ' (EXPIRED)'}
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <p className="font-medium">Set by:</p>
-                                            <p>{getUserName(ticket.pendingSetBy)}</p>
+                                            {ticket.pendingNotes && (
+                                                <div>
+                                                    <p className="font-medium">Notes:</p>
+                                                    <p className="whitespace-pre-wrap">{ticket.pendingNotes}</p>
+                                                </div>
+                                            )}
+                                            <div>
+                                                <p className="font-medium">Set:</p>
+                                                <p>{moment(ticket.pendingSetAt).format('DD MMM YYYY HH:mm')}</p>
+                                            </div>
+                                            <div>
+                                                <p className="font-medium">Expires:</p>
+                                                <p>{moment(ticket.pendingTimeout).format('DD MMM YYYY HH:mm')}</p>
+                                            </div>
+                                            <div>
+                                                <p className="font-medium">Time Remaining:</p>
+                                                <p className={moment(ticket.pendingTimeout).isBefore(moment()) ? 'text-red-600 font-semibold' : ''}>
+                                                    {moment(ticket.pendingTimeout).fromNow()}
+                                                    {moment(ticket.pendingTimeout).isBefore(moment()) && ' (EXPIRED)'}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <p className="font-medium">Set by:</p>
+                                                <p>{getUserName(ticket.pendingSetBy)}</p>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        )
+                    }
 
                     {/* Parent-Child Relationships */}
-                    {(ticketFamily?.parent || (ticketFamily?.children && ticketFamily.children.length > 0)) && (
-                        <div className="card">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                                Related Tickets
-                            </h3>
+                    {
+                        (ticketFamily?.parent || (ticketFamily?.children && ticketFamily.children.length > 0)) && (
+                            <div className="card">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                                    Related Tickets
+                                </h3>
 
-                            {/* Parent Ticket */}
-                            {ticketFamily.parent && (
-                                <div className="mb-4">
-                                    <p className="text-xs font-medium text-gray-500 uppercase mb-2">
-                                        Parent Ticket
-                                    </p>
-                                    <Link
-                                        to={`/tickets/${ticketFamily.parent._id}`}
-                                        className="block bg-blue-50 border border-blue-200 rounded-lg p-3 hover:bg-blue-100 transition-colors"
-                                    >
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex-1">
-                                                <p className="text-sm font-medium text-blue-900">
-                                                    {ticketFamily.parent.ticketNumber}
-                                                </p>
-                                                <p className="text-xs text-blue-700 mt-1 line-clamp-2">
-                                                    {ticketFamily.parent.title}
-                                                </p>
-                                            </div>
-                                            <span className={`ml-2 px-2 py-1 text-xs font-medium rounded ${ticketFamily.parent.status === 'Open' ? 'bg-blue-100 text-blue-800' :
-                                                ticketFamily.parent.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
-                                                    ticketFamily.parent.status === 'Pending' ? 'bg-orange-100 text-orange-800' :
-                                                        ticketFamily.parent.status === 'Resolved' ? 'bg-green-100 text-green-800' :
-                                                            ticketFamily.parent.status === 'Closed' ? 'bg-gray-100 text-gray-800' :
-                                                                'bg-red-100 text-red-800'
-                                                }`}>
-                                                {ticketFamily.parent.status}
-                                            </span>
-                                        </div>
-                                    </Link>
-                                </div>
-                            )}
-
-                            {/* Child Tickets */}
-                            {ticketFamily.children && ticketFamily.children.length > 0 && (
-                                <div>
-                                    <p className="text-xs font-medium text-gray-500 uppercase mb-2">
-                                        Sub-Tickets ({ticketFamily.children.length})
-                                    </p>
-                                    <div className="space-y-2">
-                                        {ticketFamily.children.map(child => (
-                                            <Link
-                                                key={child._id}
-                                                to={`/tickets/${child._id}`}
-                                                className="block bg-gray-50 border border-gray-200 rounded-lg p-3 hover:bg-gray-100 transition-colors"
-                                            >
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex-1">
-                                                        <p className="text-sm font-medium text-gray-900">
-                                                            {child.ticketNumber}
-                                                        </p>
-                                                        <p className="text-xs text-gray-600 mt-1 line-clamp-2">
-                                                            {child.title}
-                                                        </p>
-                                                    </div>
-                                                    <span className={`ml-2 px-2 py-1 text-xs font-medium rounded ${child.status === 'Open' ? 'bg-blue-100 text-blue-800' :
-                                                        child.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
-                                                            child.status === 'Pending' ? 'bg-orange-100 text-orange-800' :
-                                                                child.status === 'Resolved' ? 'bg-green-100 text-green-800' :
-                                                                    child.status === 'Closed' ? 'bg-gray-100 text-gray-800' :
-                                                                        'bg-red-100 text-red-800'
-                                                        }`}>
-                                                        {child.status}
-                                                    </span>
+                                {/* Parent Ticket */}
+                                {ticketFamily.parent && (
+                                    <div className="mb-4">
+                                        <p className="text-xs font-medium text-gray-500 uppercase mb-2">
+                                            Parent Ticket
+                                        </p>
+                                        <Link
+                                            to={`/tickets/${ticketFamily.parent._id}`}
+                                            className="block bg-blue-50 border border-blue-200 rounded-lg p-3 hover:bg-blue-100 transition-colors"
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex-1">
+                                                    <p className="text-sm font-medium text-blue-900">
+                                                        {ticketFamily.parent.ticketNumber}
+                                                    </p>
+                                                    <p className="text-xs text-blue-700 mt-1 line-clamp-2">
+                                                        {ticketFamily.parent.title}
+                                                    </p>
                                                 </div>
-                                            </Link>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* SLA Status */}
-                    {ticket.slaStatus && (
-                        <div className={`card border-l-4 ${ticket.slaStatus === 'breached' ? 'border-red-500 bg-red-50' :
-                                ticket.slaStatus === 'at-risk' ? 'border-yellow-500 bg-yellow-50' :
-                                    'border-green-500 bg-green-50'
-                            }`}>
-                            <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                                SLA Status
-                            </h3>
-
-                            <div className="space-y-3">
-                                {/* Overall Status */}
-                                <div>
-                                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${ticket.slaStatus === 'breached' ? 'bg-red-100 text-red-800' :
-                                            ticket.slaStatus === 'at-risk' ? 'bg-yellow-100 text-yellow-800' :
-                                                'bg-green-100 text-green-800'
-                                        }`}>
-                                        {ticket.slaStatus === 'breached' ? '⚠️ SLA Breached' :
-                                            ticket.slaStatus === 'at-risk' ? '⏰ At Risk' :
-                                                '✅ On Track'}
-                                    </span>
-                                </div>
-
-                                {/* Response SLA */}
-                                {!ticket.slaResponseTime && ticket.slaResponseDeadline && (
-                                    <div>
-                                        <p className="text-xs font-medium text-gray-500 uppercase">Response Deadline</p>
-                                        <p className="text-sm text-gray-900 mt-1">
-                                            {moment(ticket.slaResponseDeadline).format('DD MMM YYYY HH:mm')}
-                                        </p>
-                                        <p className="text-xs text-gray-600 mt-1">
-                                            {moment(ticket.slaResponseDeadline).fromNow()}
-                                        </p>
+                                                <span className={`ml-2 px-2 py-1 text-xs font-medium rounded ${ticketFamily.parent.status === 'Open' ? 'bg-blue-100 text-blue-800' :
+                                                    ticketFamily.parent.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
+                                                        ticketFamily.parent.status === 'Pending' ? 'bg-orange-100 text-orange-800' :
+                                                            ticketFamily.parent.status === 'Resolved' ? 'bg-green-100 text-green-800' :
+                                                                ticketFamily.parent.status === 'Closed' ? 'bg-gray-100 text-gray-800' :
+                                                                    'bg-red-100 text-red-800'
+                                                    }`}>
+                                                    {ticketFamily.parent.status}
+                                                </span>
+                                            </div>
+                                        </Link>
                                     </div>
                                 )}
 
-                                {ticket.slaResponseTime && (
+                                {/* Child Tickets */}
+                                {ticketFamily.children && ticketFamily.children.length > 0 && (
                                     <div>
-                                        <p className="text-xs font-medium text-gray-500 uppercase">Response Time</p>
-                                        <p className={`text-sm mt-1 font-medium ${ticket.slaResponseMet ? 'text-green-600' : 'text-red-600'}`}>
-                                            {ticket.slaResponseTime.toFixed(1)}h
-                                            {ticket.slaResponseMet ? ' ✓' : ' ✗'}
+                                        <p className="text-xs font-medium text-gray-500 uppercase mb-2">
+                                            Sub-Tickets ({ticketFamily.children.length})
                                         </p>
-                                    </div>
-                                )}
-
-                                {/* Resolution SLA */}
-                                {!ticket.slaResolutionTime && ticket.slaResolutionDeadline && (
-                                    <div>
-                                        <p className="text-xs font-medium text-gray-500 uppercase">Resolution Deadline</p>
-                                        <p className="text-sm text-gray-900 mt-1">
-                                            {moment(ticket.slaResolutionDeadline).format('DD MMM YYYY HH:mm')}
-                                        </p>
-                                        <p className="text-xs text-gray-600 mt-1">
-                                            {moment(ticket.slaResolutionDeadline).fromNow()}
-                                        </p>
-                                    </div>
-                                )}
-
-                                {ticket.slaResolutionTime && (
-                                    <div>
-                                        <p className="text-xs font-medium text-gray-500 uppercase">Resolution Time</p>
-                                        <p className={`text-sm mt-1 font-medium ${ticket.slaResolutionMet ? 'text-green-600' : 'text-red-600'}`}>
-                                            {ticket.slaResolutionTime.toFixed(1)}h
-                                            {ticket.slaResolutionMet ? ' ✓' : ' ✗'}
-                                        </p>
-                                    </div>
-                                )}
-
-                                {/* Paused Duration */}
-                                {ticket.slaPausedDuration > 0 && (
-                                    <div>
-                                        <p className="text-xs font-medium text-gray-500 uppercase">Time Paused</p>
-                                        <p className="text-sm text-gray-900 mt-1">
-                                            {ticket.slaPausedDuration.toFixed(1)}h
-                                        </p>
+                                        <div className="space-y-2">
+                                            {ticketFamily.children.map(child => (
+                                                <Link
+                                                    key={child._id}
+                                                    to={`/tickets/${child._id}`}
+                                                    className="block bg-gray-50 border border-gray-200 rounded-lg p-3 hover:bg-gray-100 transition-colors"
+                                                >
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex-1">
+                                                            <p className="text-sm font-medium text-gray-900">
+                                                                {child.ticketNumber}
+                                                            </p>
+                                                            <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+                                                                {child.title}
+                                                            </p>
+                                                        </div>
+                                                        <span className={`ml-2 px-2 py-1 text-xs font-medium rounded ${child.status === 'Open' ? 'bg-blue-100 text-blue-800' :
+                                                            child.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
+                                                                child.status === 'Pending' ? 'bg-orange-100 text-orange-800' :
+                                                                    child.status === 'Resolved' ? 'bg-green-100 text-green-800' :
+                                                                        child.status === 'Closed' ? 'bg-gray-100 text-gray-800' :
+                                                                            'bg-red-100 text-red-800'
+                                                            }`}>
+                                                            {child.status}
+                                                        </span>
+                                                    </div>
+                                                </Link>
+                                            ))}
+                                        </div>
                                     </div>
                                 )}
                             </div>
-                        </div>
-                    )}
+                        )
+                    }
+
+                    {/* SLA Status */}
+                    {
+                        ticket.slaStatus && (
+                            <div className={`card border-l-4 ${ticket.slaStatus === 'breached' ? 'border-red-500 bg-red-50' :
+                                ticket.slaStatus === 'at-risk' ? 'border-yellow-500 bg-yellow-50' :
+                                    'border-green-500 bg-green-50'
+                                }`}>
+                                <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                                    SLA Status
+                                </h3>
+
+                                <div className="space-y-3">
+                                    {/* Overall Status */}
+                                    <div>
+                                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${ticket.slaStatus === 'breached' ? 'bg-red-100 text-red-800' :
+                                            ticket.slaStatus === 'at-risk' ? 'bg-yellow-100 text-yellow-800' :
+                                                'bg-green-100 text-green-800'
+                                            }`}>
+                                            {ticket.slaStatus === 'breached' ? '⚠️ SLA Breached' :
+                                                ticket.slaStatus === 'at-risk' ? '⏰ At Risk' :
+                                                    '✅ On Track'}
+                                        </span>
+                                    </div>
+
+                                    {/* Response SLA */}
+                                    {!ticket.slaResponseTime && ticket.slaResponseDeadline && (
+                                        <div>
+                                            <p className="text-xs font-medium text-gray-500 uppercase">Response Deadline</p>
+                                            <p className="text-sm text-gray-900 mt-1">
+                                                {moment(ticket.slaResponseDeadline).format('DD MMM YYYY HH:mm')}
+                                            </p>
+                                            <p className="text-xs text-gray-600 mt-1">
+                                                {moment(ticket.slaResponseDeadline).fromNow()}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {ticket.slaResponseTime !== undefined && ticket.slaResponseTime !== null && (
+                                        <div>
+                                            <p className="text-xs font-medium text-gray-500 uppercase">Response Time</p>
+                                            <p className={`text-sm mt-1 font-medium ${ticket.slaResponseMet ? 'text-green-600' : 'text-red-600'}`}>
+                                                {Number(ticket.slaResponseTime).toFixed(1)}h
+                                                {ticket.slaResponseMet ? ' ✓' : ' ✗'}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* Resolution SLA */}
+                                    {!ticket.slaResolutionTime && ticket.slaResolutionDeadline && (
+                                        <div>
+                                            <p className="text-xs font-medium text-gray-500 uppercase">Resolution Deadline</p>
+                                            <p className="text-sm text-gray-900 mt-1">
+                                                {moment(ticket.slaResolutionDeadline).format('DD MMM YYYY HH:mm')}
+                                            </p>
+                                            <p className="text-xs text-gray-600 mt-1">
+                                                {moment(ticket.slaResolutionDeadline).fromNow()}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {ticket.slaResolutionTime !== undefined && ticket.slaResolutionTime !== null && (
+                                        <div>
+                                            <p className="text-xs font-medium text-gray-500 uppercase">Resolution Time</p>
+                                            <p className={`text-sm mt-1 font-medium ${ticket.slaResolutionMet ? 'text-green-600' : 'text-red-600'}`}>
+                                                {Number(ticket.slaResolutionTime).toFixed(1)}h
+                                                {ticket.slaResolutionMet ? ' ✓' : ' ✗'}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* Paused Duration */}
+                                    {ticket.slaPausedDuration > 0 && (
+                                        <div>
+                                            <p className="text-xs font-medium text-gray-500 uppercase">Time Paused</p>
+                                            <p className="text-sm text-gray-900 mt-1">
+                                                {Number(ticket.slaPausedDuration).toFixed(1)}h
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )
+                    }
 
                     {/* Ticket Info */}
                     <div className="card">
@@ -834,173 +851,177 @@ export const TicketDetail = () => {
                             )}
                         </dl>
                     </div>
-                </div>
-            </div>
+                </div >
+            </div >
 
             {/* Status Change Modal */}
-            {showStatusModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Change Ticket Status</h3>
-                        <form onSubmit={handleStatusChange}>
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    New Status
-                                </label>
-                                <select
-                                    value={newStatus}
-                                    onChange={(e) => setNewStatus(e.target.value)}
-                                    className="input-field"
-                                    required
-                                >
-                                    <option value="">Select status...</option>
-                                    <option value="In Progress">In Progress</option>
-                                    <option value="Pending">Pending</option>
-                                    <option value="Resolved">Resolved</option>
-                                    <option value="Rejected">Rejected</option>
-                                </select>
-                            </div>
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Worklog (required, min 10 characters)
-                                </label>
-                                <textarea
-                                    value={worklog}
-                                    onChange={(e) => setWorklog(e.target.value)}
-                                    rows={4}
-                                    className="input-field"
-                                    placeholder="Describe what you did..."
-                                    required
-                                />
-                            </div>
+            {
+                showStatusModal && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                        <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Change Ticket Status</h3>
+                            <form onSubmit={handleStatusChange}>
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        New Status
+                                    </label>
+                                    <select
+                                        value={newStatus}
+                                        onChange={(e) => setNewStatus(e.target.value)}
+                                        className="input-field"
+                                        required
+                                    >
+                                        <option value="">Select status...</option>
+                                        <option value="In Progress">In Progress</option>
+                                        <option value="Pending">Pending</option>
+                                        <option value="Resolved">Resolved</option>
+                                        <option value="Rejected">Rejected</option>
+                                    </select>
+                                </div>
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Worklog (required, min 10 characters)
+                                    </label>
+                                    <textarea
+                                        value={worklog}
+                                        onChange={(e) => setWorklog(e.target.value)}
+                                        rows={4}
+                                        className="input-field"
+                                        placeholder="Describe what you did..."
+                                        required
+                                    />
+                                </div>
 
-                            {/* Pending Reason Fields - Show only when status is Pending */}
-                            {newStatus === 'Pending' && (
-                                <>
-                                    <div className="mb-4">
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Pending Reason <span className="text-red-500">*</span>
-                                        </label>
-                                        <select
-                                            value={pendingReasonId}
-                                            onChange={(e) => setPendingReasonId(e.target.value)}
-                                            className="input-field"
-                                            required
-                                        >
-                                            <option value="">Select a reason...</option>
-                                            {pendingReasons.map(reason => (
-                                                <option key={reason._id} value={reason._id}>
-                                                    {reason.reason} ({reason.defaultTimeout}h)
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
+                                {/* Pending Reason Fields - Show only when status is Pending */}
+                                {newStatus === 'Pending' && (
+                                    <>
+                                        <div className="mb-4">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Pending Reason <span className="text-red-500">*</span>
+                                            </label>
+                                            <select
+                                                value={pendingReasonId}
+                                                onChange={(e) => setPendingReasonId(e.target.value)}
+                                                className="input-field"
+                                                required
+                                            >
+                                                <option value="">Select a reason...</option>
+                                                {pendingReasons.map(reason => (
+                                                    <option key={reason._id} value={reason._id}>
+                                                        {reason.reason} ({reason.defaultTimeout}h)
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
 
-                                    <div className="mb-4">
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Additional Notes (Optional)
-                                        </label>
-                                        <textarea
-                                            value={pendingNotes}
-                                            onChange={(e) => setPendingNotes(e.target.value)}
-                                            rows={3}
-                                            className="input-field"
-                                            placeholder="Any additional information about why this ticket is pending..."
-                                        />
-                                    </div>
+                                        <div className="mb-4">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Additional Notes (Optional)
+                                            </label>
+                                            <textarea
+                                                value={pendingNotes}
+                                                onChange={(e) => setPendingNotes(e.target.value)}
+                                                rows={3}
+                                                className="input-field"
+                                                placeholder="Any additional information about why this ticket is pending..."
+                                            />
+                                        </div>
 
-                                    <div className="mb-4">
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Custom Timeout (hours)
-                                        </label>
-                                        <input
-                                            type="number"
-                                            value={customTimeout}
-                                            onChange={(e) => setCustomTimeout(e.target.value)}
-                                            className="input-field"
-                                            min="1"
-                                            max="168"
-                                            placeholder="Leave empty to use default"
-                                        />
-                                        <p className="mt-1 text-xs text-gray-500">
-                                            Maximum 168 hours (1 week). Leave empty to use the default timeout from the selected reason.
-                                        </p>
-                                    </div>
-                                </>
-                            )}
+                                        <div className="mb-4">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Custom Timeout (hours)
+                                            </label>
+                                            <input
+                                                type="number"
+                                                value={customTimeout}
+                                                onChange={(e) => setCustomTimeout(e.target.value)}
+                                                className="input-field"
+                                                min="1"
+                                                max="168"
+                                                placeholder="Leave empty to use default"
+                                            />
+                                            <p className="mt-1 text-xs text-gray-500">
+                                                Maximum 168 hours (1 week). Leave empty to use the default timeout from the selected reason.
+                                            </p>
+                                        </div>
+                                    </>
+                                )}
 
-                            <div className="flex justify-end space-x-3">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setShowStatusModal(false);
-                                        setWorklog('');
-                                        setNewStatus('');
-                                        setPendingReasonId('');
-                                        setPendingNotes('');
-                                        setCustomTimeout('');
-                                        setError('');
-                                    }}
-                                    className="btn-secondary"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={isSubmitting}
-                                    className="btn-primary"
-                                >
-                                    {isSubmitting ? 'Updating...' : 'Update Status'}
-                                </button>
-                            </div>
-                        </form>
+                                <div className="flex justify-end space-x-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setShowStatusModal(false);
+                                            setWorklog('');
+                                            setNewStatus('');
+                                            setPendingReasonId('');
+                                            setPendingNotes('');
+                                            setCustomTimeout('');
+                                            setError('');
+                                        }}
+                                        className="btn-secondary"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={isSubmitting}
+                                        className="btn-primary"
+                                    >
+                                        {isSubmitting ? 'Updating...' : 'Update Status'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Reopen Modal */}
-            {showReopenModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Reopen Ticket</h3>
-                        <form onSubmit={handleReopen}>
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Reason for Reopening (min 10 characters)
-                                </label>
-                                <textarea
-                                    value={reopenReason}
-                                    onChange={(e) => setReopenReason(e.target.value)}
-                                    rows={4}
-                                    className="input-field"
-                                    placeholder="Why are you reopening this ticket?"
-                                    required
-                                />
-                            </div>
-                            <div className="flex justify-end space-x-3">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setShowReopenModal(false);
-                                        setReopenReason('');
-                                        setError('');
-                                    }}
-                                    className="btn-secondary"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={isSubmitting}
-                                    className="btn-primary"
-                                >
-                                    {isSubmitting ? 'Reopening...' : 'Reopen Ticket'}
-                                </button>
-                            </div>
-                        </form>
+            {
+                showReopenModal && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                        <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Reopen Ticket</h3>
+                            <form onSubmit={handleReopen}>
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Reason for Reopening (min 10 characters)
+                                    </label>
+                                    <textarea
+                                        value={reopenReason}
+                                        onChange={(e) => setReopenReason(e.target.value)}
+                                        rows={4}
+                                        className="input-field"
+                                        placeholder="Why are you reopening this ticket?"
+                                        required
+                                    />
+                                </div>
+                                <div className="flex justify-end space-x-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setShowReopenModal(false);
+                                            setReopenReason('');
+                                            setError('');
+                                        }}
+                                        className="btn-secondary"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={isSubmitting}
+                                        className="btn-primary"
+                                    >
+                                        {isSubmitting ? 'Reopening...' : 'Reopen Ticket'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };

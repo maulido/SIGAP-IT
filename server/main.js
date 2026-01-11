@@ -47,6 +47,9 @@ import './jobs/pending-timeout';
 import './jobs/sla-monitor';
 import './jobs/sla-escalation';
 
+// Import verification methods (TEMPORARY)
+import './verification_methods';
+
 // Password hashing with bcryptjs
 const hashPassword = (password) => {
   return bcrypt.hashSync(password, 10);
