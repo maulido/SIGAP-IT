@@ -15,7 +15,14 @@ Meteor.methods({
             throw new Meteor.Error('not-authorized');
         }
 
-        if (!Roles.userIsInRole(this.userId, ['support', 'admin'])) {
+        // Get current user to check roles
+        const currentUser = await Meteor.users.findOneAsync(this.userId);
+        if (!currentUser) {
+            throw new Meteor.Error('user-not-found');
+        }
+
+        const isSupport = currentUser.roles && (currentUser.roles.includes('support') || currentUser.roles.includes('admin'));
+        if (!isSupport) {
             throw new Meteor.Error('not-authorized', 'Only IT Support can create KB articles');
         }
 
@@ -59,7 +66,14 @@ Meteor.methods({
             throw new Meteor.Error('not-authorized');
         }
 
-        if (!Roles.userIsInRole(this.userId, ['support', 'admin'])) {
+        // Get current user to check roles
+        const currentUser = await Meteor.users.findOneAsync(this.userId);
+        if (!currentUser) {
+            throw new Meteor.Error('user-not-found');
+        }
+
+        const isSupport = currentUser.roles && (currentUser.roles.includes('support') || currentUser.roles.includes('admin'));
+        if (!isSupport) {
             throw new Meteor.Error('not-authorized', 'Only IT Support can update KB articles');
         }
 
@@ -91,7 +105,14 @@ Meteor.methods({
             throw new Meteor.Error('not-authorized');
         }
 
-        if (!Roles.userIsInRole(this.userId, ['admin'])) {
+        // Get current user to check roles
+        const currentUser = await Meteor.users.findOneAsync(this.userId);
+        if (!currentUser) {
+            throw new Meteor.Error('user-not-found');
+        }
+
+        const isAdmin = currentUser.roles && currentUser.roles.includes('admin');
+        if (!isAdmin) {
             throw new Meteor.Error('not-authorized', 'Only admins can delete KB articles');
         }
 

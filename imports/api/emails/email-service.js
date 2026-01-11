@@ -1,7 +1,7 @@
 import { Meteor } from 'meteor/meteor';
 import { Email } from 'meteor/email';
 import { emailTemplates } from './email-templates';
-import { isEmailEnabled } from '../../server/email-config';
+import { isEmailEnabled } from '../../../server/email-config';
 
 // Email service for sending notifications
 export const EmailService = {

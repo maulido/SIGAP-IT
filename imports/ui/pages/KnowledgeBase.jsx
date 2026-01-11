@@ -11,8 +11,17 @@ export const KnowledgeBase = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [searching, setSearching] = useState(false);
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [formData, setFormData] = useState({
+        title: '',
+        content: '',
+        category: 'Hardware',
+        tags: '',
+        keywords: '',
+    });
 
-    const { articles, isLoading } = useTracker(() => {
+    const { articles, isLoading, currentUser } = useTracker(() => {
+        const userHandle = Meteor.subscribe('users.current');
         const handle = Meteor.subscribe('kb.published', {
             category: selectedCategory || undefined,
         });
@@ -20,7 +29,20 @@ export const KnowledgeBase = () => {
         return {
             articles: KBArticles.find({}, { sort: { viewCount: -1, createdAt: -1 } }).fetch(),
             isLoading: !handle.ready(),
+            currentUser: Meteor.user(),
         };
+    });
+
+    // Check if user is Support or Admin
+    const canManageKB = currentUser && currentUser.roles &&
+        (currentUser.roles.includes('support') || currentUser.roles.includes('admin'));
+
+    // Debug logging
+    console.log('[KnowledgeBase] User check:', {
+        hasUser: !!currentUser,
+        email: currentUser?.emails?.[0]?.address,
+        roles: currentUser?.roles,
+        canManageKB
     });
 
     const handleSearch = async () => {
@@ -44,13 +66,71 @@ export const KnowledgeBase = () => {
         }
     };
 
+    const handleCreateArticle = async (e) => {
+        e.preventDefault();
+
+        console.log('[KB Create] Starting article creation...');
+        console.log('[KB Create] Form data:', formData);
+
+        try {
+            const tags = formData.tags.split(',').map(t => t.trim()).filter(Boolean);
+            const keywords = formData.keywords.split(',').map(k => k.trim()).filter(Boolean);
+
+            console.log('[KB Create] Processed data:', {
+                title: formData.title,
+                content: formData.content,
+                category: formData.category,
+                tags,
+                keywords
+            });
+
+            const result = await Meteor.callAsync('kb.create', {
+                title: formData.title,
+                content: formData.content,
+                category: formData.category,
+                tags,
+                keywords,
+            });
+
+            console.log('[KB Create] Success! Article ID:', result.articleId);
+
+            setShowCreateModal(false);
+            setFormData({
+                title: '',
+                content: '',
+                category: 'Hardware',
+                tags: '',
+                keywords: '',
+            });
+            alert('Article created successfully!');
+        } catch (error) {
+            console.error('[KB Create] Error:', error);
+            console.error('[KB Create] Error details:', {
+                message: error.message,
+                reason: error.reason,
+                error: error.error
+            });
+            alert(`Error: ${error.reason || error.message}`);
+        }
+    };
+
     const displayArticles = searchResults.length > 0 ? searchResults : articles;
 
     return (
         <div className="max-w-6xl mx-auto">
-            <div className="mb-6">
-                <h1 className="text-3xl font-bold text-gray-900">Knowledge Base</h1>
-                <p className="text-gray-600 mt-1">Find solutions to common IT issues</p>
+            <div className="mb-6 flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-900">Knowledge Base</h1>
+                    <p className="text-gray-600 mt-1">Find solutions to common IT issues</p>
+                </div>
+                {canManageKB && (
+                    <button
+                        onClick={() => setShowCreateModal(true)}
+                        className="btn-primary"
+                    >
+                        + Create Article
+                    </button>
+                )}
             </div>
 
             {/* Search & Filter */}
@@ -144,6 +224,107 @@ export const KnowledgeBase = () => {
                             </div>
                         </Link>
                     ))}
+                </div>
+            )}
+
+            {/* Create Article Modal */}
+            {showCreateModal && (
+                <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+                    <div className="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
+                        <div className="mb-4">
+                            <h3 className="text-lg font-medium text-gray-900">Create Knowledge Base Article</h3>
+                        </div>
+                        <form onSubmit={handleCreateArticle}>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Title *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={formData.title}
+                                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                        className="input-field"
+                                        placeholder="e.g., How to fix printer connection issues"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Category *
+                                    </label>
+                                    <select
+                                        value={formData.category}
+                                        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                                        className="input-field"
+                                        required
+                                    >
+                                        {CATEGORIES.map(cat => (
+                                            <option key={cat} value={cat}>{cat}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Content *
+                                    </label>
+                                    <textarea
+                                        required
+                                        value={formData.content}
+                                        onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                                        className="input-field"
+                                        rows="8"
+                                        placeholder="Describe the solution step by step..."
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Tags (comma-separated)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={formData.tags}
+                                        onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
+                                        className="input-field"
+                                        placeholder="e.g., printer, network, troubleshooting"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Keywords (comma-separated)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={formData.keywords}
+                                        onChange={(e) => setFormData({ ...formData, keywords: e.target.value })}
+                                        className="input-field"
+                                        placeholder="e.g., offline, connection, driver"
+                                    />
+                                </div>
+                            </div>
+                            <div className="mt-6 flex gap-3">
+                                <button type="submit" className="btn-primary flex-1">
+                                    Create Article
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowCreateModal(false);
+                                        setFormData({
+                                            title: '',
+                                            content: '',
+                                            category: 'Hardware',
+                                            tags: '',
+                                            keywords: '',
+                                        });
+                                    }}
+                                    className="btn-secondary flex-1"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             )}
         </div>

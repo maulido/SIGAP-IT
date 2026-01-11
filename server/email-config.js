@@ -22,9 +22,11 @@ Meteor.startup(() => {
         console.log('   Example: MAIL_URL=smtp://username:password@smtp.gmail.com:587');
     }
 
-    // Set default FROM address
-    Accounts.emailTemplates.from = process.env.MAIL_FROM || 'SIGAP-IT <noreply@sigap-it.com>';
-    Accounts.emailTemplates.siteName = 'SIGAP-IT';
+    // Note: We're using custom EmailService instead of Accounts.emailTemplates
+    // If you need to configure Accounts email templates, uncomment below:
+    // import { Accounts } from 'meteor/accounts-base';
+    // Accounts.emailTemplates.from = process.env.MAIL_FROM || 'SIGAP-IT <noreply@sigap-it.com>';
+    // Accounts.emailTemplates.siteName = 'SIGAP-IT';
 });
 
 // Check if email is enabled

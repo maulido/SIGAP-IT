@@ -100,6 +100,7 @@ export const AdminUsers = () => {
                 department: formData.department,
                 location: formData.location,
                 phone: formData.phone,
+                role: formData.role, // Include role
             });
             setEditingUser(null);
             setFormData({
@@ -288,8 +289,8 @@ export const AdminUsers = () => {
                                             onClick={() => handleToggleActive(user._id, user.profile?.isActive)}
                                             disabled={user._id === currentUser._id}
                                             className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.profile?.isActive
-                                                    ? 'bg-green-100 text-green-800'
-                                                    : 'bg-red-100 text-red-800'
+                                                ? 'bg-green-100 text-green-800'
+                                                : 'bg-red-100 text-red-800'
                                                 } ${user._id === currentUser._id ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:opacity-80'}`}
                                         >
                                             {user.profile?.isActive ? 'Active' : 'Inactive'}
@@ -511,6 +512,21 @@ export const AdminUsers = () => {
                                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                                         className="input-field"
                                     />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Role *
+                                    </label>
+                                    <select
+                                        value={formData.role}
+                                        onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                                        className="input-field"
+                                        required
+                                    >
+                                        <option value="user">User</option>
+                                        <option value="support">Support</option>
+                                        <option value="admin">Admin</option>
+                                    </select>
                                 </div>
                             </div>
                             <div className="mt-6 flex gap-3">
