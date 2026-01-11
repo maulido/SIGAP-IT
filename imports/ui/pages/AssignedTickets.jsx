@@ -30,11 +30,33 @@ export const AssignedTickets = () => {
         const currentUser = Meteor.user();
         const userRoles = currentUser ? Roles.getRolesForUser(currentUser._id) : [];
 
+        // Fetch tickets and apply custom sorting
+        // 1. In Progress (Earliest createdAt first)
+        // 2. Others (Latest updatedAt first)
+        const allTickets = Tickets.find(
+            { assignedToId: currentUser?._id }
+        ).fetch();
+
+        const sortedTickets = allTickets.sort((a, b) => {
+            const aInProgress = a.status === 'In Progress';
+            const bInProgress = b.status === 'In Progress';
+
+            // If a is In Progress and b is not, a comes first
+            if (aInProgress && !bInProgress) return -1;
+            // If b is In Progress and a is not, b comes first
+            if (!aInProgress && bInProgress) return 1;
+
+            // If both are In Progress, sort by createdAt (Ascending - Oldest First)
+            if (aInProgress && bInProgress) {
+                return new Date(a.createdAt) - new Date(b.createdAt);
+            }
+
+            // If neither is In Progress, sort by updatedAt (Descending - Newest First)
+            return new Date(b.updatedAt) - new Date(a.updatedAt);
+        });
+
         return {
-            tickets: Tickets.find(
-                { assignedToId: currentUser?._id },
-                { sort: { updatedAt: -1 } }
-            ).fetch(),
+            tickets: sortedTickets,
             isLoading: !handle.ready(),
             userRoles,
         };
@@ -84,8 +106,8 @@ export const AssignedTickets = () => {
                     <button
                         onClick={() => setStatusFilter('')}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${statusFilter === ''
-                                ? 'bg-primary-600 text-white'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-primary-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             }`}
                     >
                         All ({tickets.length})
@@ -93,8 +115,8 @@ export const AssignedTickets = () => {
                     <button
                         onClick={() => setStatusFilter('In Progress')}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'In Progress'
-                                ? 'bg-purple-600 text-white'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-purple-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             }`}
                     >
                         In Progress ({ticketsByStatus['In Progress'].length})
@@ -102,8 +124,8 @@ export const AssignedTickets = () => {
                     <button
                         onClick={() => setStatusFilter('Pending')}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'Pending'
-                                ? 'bg-yellow-600 text-white'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-yellow-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             }`}
                     >
                         Pending ({ticketsByStatus['Pending'].length})
@@ -111,8 +133,8 @@ export const AssignedTickets = () => {
                     <button
                         onClick={() => setStatusFilter('Resolved')}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'Resolved'
-                                ? 'bg-green-600 text-white'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-green-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             }`}
                     >
                         Resolved ({ticketsByStatus['Resolved'].length})

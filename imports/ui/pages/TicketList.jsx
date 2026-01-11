@@ -24,9 +24,26 @@ const PRIORITY_COLORS = {
 export const TicketList = () => {
     const { tickets, isLoading } = useTracker(() => {
         const handle = Meteor.subscribe('tickets.myTickets');
+        const user = Meteor.user();
+
+        // Debug logging
+        console.log('TicketList tracker:', {
+            subscriptionReady: handle.ready(),
+            userId: user?._id
+        });
+
+        if (!user) {
+            return {
+                tickets: [],
+                isLoading: false // Redirected by ProtectedRoute anyway, but good for safety
+            };
+        }
+
+        const ticketsFound = Tickets.find({}, { sort: { createdAt: -1 } }).fetch();
+        console.log('TicketList found tickets:', ticketsFound.length);
 
         return {
-            tickets: Tickets.find({}, { sort: { createdAt: -1 } }).fetch(),
+            tickets: ticketsFound,
             isLoading: !handle.ready(),
         };
     });
@@ -38,6 +55,8 @@ export const TicketList = () => {
             </div>
         );
     }
+
+    console.log('TicketList rendering:', tickets.length, 'tickets');
 
     return (
         <div>

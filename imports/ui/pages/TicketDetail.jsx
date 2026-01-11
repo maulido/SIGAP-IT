@@ -90,6 +90,7 @@ export const TicketDetail = () => {
     const navigate = useNavigate();
     const [comment, setComment] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
     const [showStatusModal, setShowStatusModal] = useState(false);
     const [showReopenModal, setShowReopenModal] = useState(false);
     const [newStatus, setNewStatus] = useState('');
@@ -121,7 +122,23 @@ export const TicketDetail = () => {
 
             const currentUser = Meteor.user();
             const ticket = Tickets.findOne(id);
-            const isLoading = !ticketHandle.ready() || !commentsHandle.ready() || !worklogsHandle.ready() || !attachmentsHandle.ready() || !usersHandle.ready() || !pendingReasonsHandle.ready() || !ratingsHandle.ready() || !familyHandle.ready() || !escalationsHandle.ready();
+
+            const isReady = ticketHandle.ready() &&
+                commentsHandle.ready() &&
+                worklogsHandle.ready() &&
+                attachmentsHandle.ready() &&
+                usersHandle.ready() &&
+                pendingReasonsHandle.ready() &&
+                ratingsHandle.ready() &&
+                familyHandle.ready() &&
+                escalationsHandle.ready();
+
+            console.log('TicketDetail tracker state:', {
+                id,
+                isReady,
+                ticketFound: !!ticket,
+                userId: currentUser?._id
+            });
 
             // Get family tickets
             let parentTicket = null;
@@ -147,7 +164,7 @@ export const TicketDetail = () => {
                 ticketFamily: { parent: parentTicket, children: childTickets },
                 escalations: Escalations ? Escalations.find({ ticketId: id }).fetch() : [],
                 currentUser,
-                isLoading,
+                isLoading: !isReady,
             };
         } catch (err) {
             console.error('Error in TicketDetail useTracker:', err);
@@ -292,7 +309,7 @@ export const TicketDetail = () => {
         const file = e.target.files[0];
         if (!file) return;
 
-        setIsSubmitting(true);
+        setIsUploading(true);
         setError('');
 
         try {
@@ -308,12 +325,12 @@ export const TicketDetail = () => {
                     fileData: base64Data,
                 });
 
-                setIsSubmitting(false);
+                setIsUploading(false);
             };
             reader.readAsDataURL(file);
         } catch (err) {
             setError(err.reason || 'Failed to upload file');
-            setIsSubmitting(false);
+            setIsUploading(false);
         }
     };
 
