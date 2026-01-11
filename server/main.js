@@ -15,6 +15,7 @@ import { PendingReasons } from '../imports/api/pending-reasons/pending-reasons';
 import { Ratings } from '../imports/api/ratings/ratings';
 import { KBArticles } from '../imports/api/kb-articles/kb-articles';
 import { Escalations } from '../imports/api/escalations/escalations';
+import { CategoryConfigs } from '../imports/api/category-configs/category-configs';
 
 // Import custom roles utility
 import { Roles } from '../imports/api/roles/roles';
@@ -23,6 +24,7 @@ import { Roles } from '../imports/api/roles/roles';
 import './email-config';
 
 // Import all methods
+import '../imports/api/notifications/methods';
 import '../imports/api/tickets/methods';
 import '../imports/api/comments/methods';
 import '../imports/api/attachments/methods';
@@ -41,6 +43,7 @@ import '../imports/api/worklogs/publications';
 import '../imports/api/attachments/publications';
 import '../imports/api/users/users'; // Contains user publications
 import '../imports/api/escalations/publications';
+import '../imports/api/notifications/publications';
 
 // Import background jobs
 import './jobs/pending-timeout';
@@ -49,7 +52,7 @@ import './jobs/sla-escalation';
 import './jobs/auto-close-tickets';
 
 // Import verification methods (TEMPORARY)
-import './verification_methods';
+// import './verification_methods';
 
 // KF-32: Audit Trail for Logout
 Accounts.onLogout(async (session) => {
@@ -221,6 +224,51 @@ Meteor.startup(async () => {
     console.log('✅ Default pending reasons created');
   }
 
+  // Create default Category Configs
+  const categoryConfigCount = await CategoryConfigs.find().countAsync();
+  if (categoryConfigCount === 0) {
+    const categoryDefaults = [
+      {
+        category: 'Hardware',
+        fields: [
+          { name: 'assetId', label: 'Asset Tag / Hostname', type: 'text', placeholder: 'e.g., LP-IT-001', required: true },
+          { name: 'deviceType', label: 'Device Type', type: 'select', options: ['Laptop', 'Desktop', 'Printer', 'Scanner', 'Other'], required: true },
+          { name: 'model', label: 'Model', type: 'text', placeholder: 'e.g., Lenovo ThinkPad T14', required: false }
+        ],
+        isActive: true,
+        createdAt: new Date()
+      },
+      {
+        category: 'Software',
+        fields: [
+          { name: 'softwareName', label: 'Software Name', type: 'text', placeholder: 'e.g., Office 365, Adobe Reader', required: true },
+          { name: 'version', label: 'Version', type: 'text', placeholder: 'if known', required: false },
+          { name: 'impactedUsers', label: 'Impacted Users', type: 'select', options: ['Single User', 'Multiple Users', 'All Users'], required: true }
+        ],
+        isActive: true,
+        createdAt: new Date()
+      },
+      {
+        category: 'Network',
+        fields: [
+          { name: 'connectionType', label: 'Connection Type', type: 'select', options: ['WiFi', 'LAN/Cable', 'VPN'], required: true },
+          { name: 'locationDetails', label: 'Detailed Location', type: 'text', placeholder: 'e.g., Floor 3 Meeting Room', required: true }
+        ],
+        isActive: true,
+        createdAt: new Date()
+      }
+    ];
+
+    for (const config of categoryDefaults) {
+      await CategoryConfigs.insertAsync(config);
+    }
+    console.log('✅ Default Category configurations created');
+  }
+
+  Meteor.publish('categoryConfigs.all', function () {
+    return CategoryConfigs.find({ isActive: true });
+  });
+
   console.log('✅ SIGAP-IT Server Ready!');
   console.log('📍 Visit http://localhost:3000');
 
@@ -228,3 +276,6 @@ Meteor.startup(async () => {
   const finalUserCount = await Meteor.users.find().countAsync();
   console.log(`📊 Users: ${finalUserCount}, Tickets: ${ticketCount}`);
 });
+
+// Import verification script at the end to ensure it runs after seeding
+import './verify_dynamic_forms';
