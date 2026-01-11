@@ -86,11 +86,11 @@ export const AssignedTickets = () => {
         ? tickets.filter(ticket => ticket.status === statusFilter)
         : tickets;
 
-    // Group by status
+    // Group by status (use all tickets to keep counts correct)
     const ticketsByStatus = {
-        'In Progress': filteredTickets.filter(t => t.status === 'In Progress'),
-        'Pending': filteredTickets.filter(t => t.status === 'Pending'),
-        'Resolved': filteredTickets.filter(t => t.status === 'Resolved'),
+        'In Progress': tickets.filter(t => t.status === 'In Progress'),
+        'Pending': tickets.filter(t => t.status === 'Pending'),
+        'Resolved': tickets.filter(t => t.status === 'Resolved'),
     };
 
     return (
