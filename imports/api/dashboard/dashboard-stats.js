@@ -70,7 +70,7 @@ Meteor.methods({
             throw new Meteor.Error('not-authorized');
         }
 
-        if (!Roles.userIsInRole(this.userId, ['support', 'admin'])) {
+        if (!(await Roles.userIsInRoleAsync(this.userId, ['support', 'admin']))) {
             throw new Meteor.Error('not-authorized', 'Only IT Support can view SLA stats');
         }
 
@@ -159,7 +159,7 @@ Meteor.methods({
             throw new Meteor.Error('not-authorized');
         }
 
-        if (!Roles.userIsInRole(this.userId, ['admin'])) {
+        if (!(await Roles.userIsInRoleAsync(this.userId, ['admin']))) {
             throw new Meteor.Error('not-authorized', 'Only admins can view performance stats');
         }
 
