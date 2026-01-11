@@ -1,7 +1,8 @@
 import React from 'react';
 import { Meteor } from 'meteor/meteor';
 import { useTracker } from 'meteor/react-meteor-data';
-import { Menu, Bell, User, LogOut } from 'lucide-react';
+import { Menu, User, LogOut } from 'lucide-react';
+import { NotificationDropdown } from './NotificationDropdown';
 
 export const Header = ({ onMenuClick }) => {
     const user = useTracker(() => Meteor.user());
@@ -34,10 +35,8 @@ export const Header = ({ onMenuClick }) => {
                 {/* Right: Actions & User */}
                 <div className="flex items-center gap-4">
                     {/* Notifications (Placeholder) */}
-                    <button className="p-2 rounded-full hover:bg-gray-100 text-gray-500 relative">
-                        <Bell size={20} />
-                        <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
-                    </button>
+                    {/* Notifications */}
+                    <NotificationDropdown />
 
                     {/* User Profile */}
                     <div className="flex items-center gap-3 pl-3 border-l border-gray-200">

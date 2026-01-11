@@ -923,6 +923,23 @@ export const TicketDetail = () => {
                         )
                     }
 
+                    {/* Dynamic Fields (Metadata) */}
+                    {ticket.metadata && Object.keys(ticket.metadata).length > 0 && (
+                        <div className="card">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4">{ticket.category} Details</h3>
+                            <dl className="space-y-3">
+                                {Object.entries(ticket.metadata).map(([key, value]) => (
+                                    <div key={key}>
+                                        <dt className="text-xs font-medium text-gray-500 uppercase">
+                                            {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                                        </dt>
+                                        <dd className="mt-1 text-sm text-gray-900">{value}</dd>
+                                    </div>
+                                ))}
+                            </dl>
+                        </div>
+                    )}
+
                     {/* Ticket Info */}
                     <div className="card">
                         <h3 className="text-lg font-semibold text-gray-900 mb-4">Ticket Information</h3>

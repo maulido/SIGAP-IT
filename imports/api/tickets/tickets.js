@@ -13,6 +13,7 @@ export const Tickets = new Mongo.Collection('tickets');
 //   location: String,
 //   reporterId: String (userId),
 //   assignedToId: String (userId, optional),
+//   metadata: Object (Blackbox, for dynamic fields),
 //
 //   // Pending workflow fields
 //   pendingReason: String (optional),
@@ -33,14 +34,16 @@ export const Tickets = new Mongo.Collection('tickets');
 //   hasChildren: Boolean (default false),
 //
 //   // SLA fields
+//   // SLA fields
+//   slaConfigId: String (optional, reference to SLAConfigs),
 //   slaResponseDeadline: Date (calculated on creation),
 //   slaResolutionDeadline: Date (calculated on creation),
-//   slaResponseTime: Number (hours, actual time taken),
-//   slaResolutionTime: Number (hours, actual time taken),
+//   slaRespondedAt: Date (actual time when status became In Progress),
+//   slaResolvedAt: Date (actual time when status became Resolved),
 //   slaResponseMet: Boolean (true if met),
 //   slaResolutionMet: Boolean (true if met),
 //   slaPausedAt: Date (when paused, e.g., Pending),
-//   slaPausedDuration: Number (total hours paused),
+//   slaPausedDuration: Number (milliseconds, total paused time), // Storing in ms is safer
 //   slaStatus: String ('on-track', 'at-risk', 'breached'),
 //
 //   // Timestamps

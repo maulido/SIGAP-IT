@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Meteor } from 'meteor/meteor';
+import { useTracker } from 'meteor/react-meteor-data';
 import { useNavigate, Link } from 'react-router-dom';
 import moment from 'moment';
+import { CategoryConfigs } from '../../api/category-configs/category-configs';
 
 const CATEGORIES = ['Hardware', 'Software', 'Network', 'Email', 'Printer', 'Other'];
 const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
@@ -23,6 +25,7 @@ export const TicketCreate = () => {
         category: 'Software',
         priority: 'Medium',
         location: '',
+        metadata: {} // Store dynamic field values here
     });
     const [duplicates, setDuplicates] = useState([]);
     const [attachments, setAttachments] = useState([]);
@@ -35,6 +38,16 @@ export const TicketCreate = () => {
     const [searchingParent, setSearchingParent] = useState(false);
     const [kbRecommendations, setKbRecommendations] = useState([]);
 
+    // Subscribe to Category Configs
+    const { categoryConfig, isLoadingConfig } = useTracker(() => {
+        const handle = Meteor.subscribe('categoryConfigs.all'); // We might need to create this publication
+        const config = CategoryConfigs.findOne({ category: formData.category, isActive: true });
+        return {
+            categoryConfig: config,
+            isLoadingConfig: !handle.ready()
+        };
+    }, [formData.category]);
+
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
@@ -44,6 +57,17 @@ export const TicketCreate = () => {
             formData.title && formData.category && formData.location) {
             checkDuplicates();
         }
+    };
+
+    const handleMetadataChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            metadata: {
+                ...prev.metadata,
+                [name]: value
+            }
+        }));
     };
 
     const checkDuplicates = () => {
@@ -401,6 +425,48 @@ export const TicketCreate = () => {
                     </div>
                 </div>
 
+                {/* Dynamic Fields Section */}
+                {categoryConfig && categoryConfig.fields && categoryConfig.fields.length > 0 && (
+                    <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <h3 className="text-sm font-medium text-gray-900 mb-3">{formData.category} Details</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {categoryConfig.fields.map((field) => (
+                                <div key={field.name} className="col-span-1">
+                                    <label htmlFor={field.name} className="block text-sm font-medium text-gray-700 mb-1">
+                                        {field.label} {field.required && <span className="text-red-500">*</span>}
+                                    </label>
+                                    {field.type === 'select' ? (
+                                        <select
+                                            id={field.name}
+                                            name={field.name}
+                                            className="input-field"
+                                            value={formData.metadata[field.name] || ''}
+                                            onChange={handleMetadataChange}
+                                            required={field.required}
+                                        >
+                                            <option value="">Select {field.label}</option>
+                                            {field.options && field.options.map(opt => (
+                                                <option key={opt} value={opt}>{opt}</option>
+                                            ))}
+                                        </select>
+                                    ) : (
+                                        <input
+                                            type={field.type || 'text'}
+                                            id={field.name}
+                                            name={field.name}
+                                            className="input-field"
+                                            placeholder={field.placeholder}
+                                            value={formData.metadata[field.name] || ''}
+                                            onChange={handleMetadataChange}
+                                            required={field.required}
+                                        />
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 <div className="mb-6">
                     <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
                         Location/Department <span className="text-red-500">*</span>
@@ -417,7 +483,7 @@ export const TicketCreate = () => {
                     />
                 </div>
 
-                {/* File Attachments */}
+                {/* File Attachments and Parent Link... (Keeping existing code) */}
                 <div className="mb-6">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                         Attachments (Optional)
@@ -592,3 +658,4 @@ export const TicketCreate = () => {
         </div>
     );
 };
+

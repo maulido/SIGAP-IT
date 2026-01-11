@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTracker } from 'meteor/react-meteor-data';
 import { Meteor } from 'meteor/meteor';
 
-export const EscalationMonitor = () => {
+export const EscalationMonitor = ({ canView }) => {
     const [stats, setStats] = useState({
         total: 0,
         warning: 0,
@@ -14,8 +14,8 @@ export const EscalationMonitor = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-    const user = useTracker(() => Meteor.user());
-    const canView = user?.roles?.includes('admin') || user?.roles?.includes('support');
+    // const user = useTracker(() => Meteor.user());
+    // const canView = user?.roles?.includes('admin') || user?.roles?.includes('support');
 
     const fetchData = async () => {
         setIsLoading(true);

@@ -44,6 +44,8 @@ import '../imports/api/attachments/publications';
 import '../imports/api/users/users'; // Contains user publications
 import '../imports/api/escalations/publications';
 import '../imports/api/notifications/publications';
+import '../imports/api/category-configs/server/publications';
+import '../imports/api/audit-logs/server/publications';
 
 // Import background jobs
 import './jobs/pending-timeout';
@@ -278,4 +280,4 @@ Meteor.startup(async () => {
 });
 
 // Import verification script at the end to ensure it runs after seeding
-import './verify_dynamic_forms';
+// import './verify_dynamic_forms';

@@ -1,6 +1,8 @@
 import { Meteor } from 'meteor/meteor';
 import { Tickets } from '../../imports/api/tickets/tickets';
 import { Worklogs } from '../../imports/api/worklogs/worklogs';
+import { Notifications } from '../../imports/api/notifications/notifications';
+import { EmailService } from '../../imports/api/emails/email-service';
 
 // Pending Timeout Monitoring Job
 // Runs every 15 minutes to check for expired pending tickets
@@ -48,8 +50,61 @@ Meteor.setInterval(async () => {
 
             console.log(`[Pending Timeout] Escalated ticket ${ticket.ticketNumber} from Pending to ${previousStatus}`);
 
-            // TODO: Send notification to assigned user and reporter
-            // This would require implementing email/notification system
+            // Notify Reporter
+            const reporter = await Meteor.users.findOneAsync(ticket.reporterId);
+            const systemUser = {
+                _id: 'system',
+                profile: { fullName: 'System (Auto-Timeout)' },
+                emails: [{ address: 'no-reply@sigap-it.com' }]
+            };
+
+            if (reporter) {
+                // Email
+                await EmailService.sendStatusChangedEmail(
+                    ticket,
+                    reporter,
+                    'Pending',
+                    previousStatus,
+                    systemUser
+                );
+
+                // In-App Notification
+                await Notifications.insertAsync({
+                    userId: reporter._id,
+                    type: 'warning',
+                    title: 'Ticket Reopened (Timeout)',
+                    message: `Ticket #${ticket.ticketNumber} has been automatically reopened due to pending timeout.`,
+                    link: `/tickets/${ticket._id}`,
+                    isRead: false,
+                    createdAt: new Date()
+                });
+            }
+
+            // Notify Assignee (if exists)
+            if (ticket.assignedToId) {
+                const assignee = await Meteor.users.findOneAsync(ticket.assignedToId);
+                if (assignee) {
+                    // Email (Assignee receives via sendStatusChangedEmail if explicitly handled, 
+                    // but the service might send to reporter only. Let's check EmailService.
+                    // EmailService.sendStatusChangedEmail triggers notification to assignee internally 
+                    // if ticket.assignedToId is set and different from reporter/changer.
+                    // So calling it once above might be enough for email, but let's be safe/explicit if needed.
+                    // Actually, looking at EmailService implementation:
+                    // It sends to reporter. Then checks if (assignedToId && assignedToId != reporter && assignedToId != changedBy) -> sends to assignee.
+                    // So the single call above covers both IF the conditions are met.
+
+                    // In-App Notification for Assignee
+                    await Notifications.insertAsync({
+                        userId: assignee._id,
+                        type: 'warning',
+                        title: 'Ticket Reopened (Timeout)',
+                        message: `Ticket #${ticket.ticketNumber} assigned to you has revisited Open status due to timeout.`,
+                        link: `/tickets/${ticket._id}`,
+                        isRead: false,
+                        createdAt: new Date()
+                    });
+                }
+            }
         } catch (error) {
             console.error(`[Pending Timeout] Error processing ticket ${ticket.ticketNumber}:`, error);
         }

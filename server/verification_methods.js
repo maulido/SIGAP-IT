@@ -39,5 +39,11 @@ Meteor.methods({
         });
 
         return 'Escalation created successfully';
+    },
+
+    async 'verification.checkSLALogic'() {
+        if (!this.userId) throw new Meteor.Error('not-authorized');
+        // This is a placeholder to confirm the file is writable and loaded
+        return 'SLA Check Ready';
     }
 });

@@ -5,7 +5,7 @@ import { Worklogs } from '../worklogs/worklogs';
 import { AuditLogs } from '../audit-logs/audit-logs';
 import { Roles } from '../roles/roles';
 import { PendingReasons } from '../pending-reasons/pending-reasons';
-import { calculateSLADeadlines } from './sla-calculator';
+import { calculateSLADeadlinesAsync } from './sla-calculator';
 import { EmailService } from '../emails/email-service';
 
 // Generate unique ticket number
@@ -45,12 +45,13 @@ async function checkDuplicates(title, category, location) {
 }
 
 Meteor.methods({
-    async 'tickets.create'({ title, description, category, priority, location, attachments = [] }) {
+    async 'tickets.create'({ title, description, category, priority, location, attachments = [], metadata = {} }) {
         check(title, String);
         check(description, String);
         check(category, String);
         check(priority, String);
         check(location, String);
+        check(metadata, Match.Maybe(Object));
 
         if (!this.userId) {
             throw new Meteor.Error('not-authorized', 'You must be logged in to create a ticket');
@@ -61,7 +62,7 @@ Meteor.methods({
 
         const ticketNumber = await generateTicketNumber();
         const createdAt = new Date();
-        const slaDeadlines = calculateSLADeadlines(createdAt, priority);
+        const slaDeadlines = await calculateSLADeadlinesAsync(createdAt, priority);
 
         const ticketId = await Tickets.insertAsync({
             ticketNumber,
@@ -73,6 +74,7 @@ Meteor.methods({
             status: 'Open',
             reporterId: this.userId,
             attachments,
+            metadata: metadata || {}, // Save dynamic fields
             ...slaDeadlines,
             slaStatus: 'on-track',
             slaPausedDuration: 0,
@@ -172,6 +174,17 @@ Meteor.methods({
             });
         }
 
+        // Send internal notification to reporter
+        if (ticket.reporterId !== this.userId) {
+            Meteor.callAsync('notifications.create', {
+                userId: ticket.reporterId,
+                title: 'Ticket Assigned',
+                message: `Your ticket ${ticket.ticketNumber} has been assigned to ${assignee.profile?.fullName || 'Support'}.`,
+                type: 'info',
+                link: `/tickets/${ticketId}`
+            }).catch(e => console.error('Notification error', e));
+        }
+
         return true;
     },
 
@@ -245,6 +258,15 @@ Meteor.methods({
             });
         }
 
+        // Send internal notification to assignee
+        Meteor.callAsync('notifications.create', {
+            userId: assigneeId,
+            title: 'New Ticket Assignment',
+            message: `You have been assigned ticket ${ticket.ticketNumber} by Admin.`,
+            type: 'info',
+            link: `/tickets/${ticketId}`
+        }).catch(e => console.error('Notification error', e));
+
         return true;
     },
 
@@ -316,7 +338,7 @@ Meteor.methods({
         }
 
         // SLA Tracking
-        const { calculateActualTime, getSLAConfig } = await import('./sla-calculator.js');
+        const { calculateActualTime, getSLAConfigAsync } = await import('./sla-calculator.js');
         const oldStatus = ticket.status;
         const now = new Date();
 
@@ -327,8 +349,9 @@ Meteor.methods({
                 now,
                 ticket.slaPausedDuration || 0
             );
-            const slaConfig = getSLAConfig(ticket.priority);
-            updateData.slaResponseTime = responseTime;
+            const slaConfig = await getSLAConfigAsync(ticket.priority);
+            updateData.slaResponseTime = responseTime; // Duration in hours
+            updateData.slaRespondedAt = now; // Timestamp
             updateData.slaResponseMet = responseTime <= slaConfig.response;
         }
 
@@ -352,7 +375,7 @@ Meteor.methods({
                 now,
                 updateData.slaPausedDuration || ticket.slaPausedDuration || 0
             );
-            const slaConfig = getSLAConfig(ticket.priority);
+            const slaConfig = await getSLAConfigAsync(ticket.priority);
             updateData.slaResolutionTime = resolutionTime;
             updateData.slaResolutionMet = resolutionTime <= slaConfig.resolution;
         }
@@ -407,6 +430,17 @@ Meteor.methods({
             EmailService.sendTicketResolvedEmail(updatedTicket, reporter, changedBy).catch(err => {
                 console.error('Error sending ticket resolved email:', err);
             });
+        }
+
+        // Send internal notification to reporter
+        if (ticket.reporterId !== this.userId) {
+            Meteor.callAsync('notifications.create', {
+                userId: ticket.reporterId,
+                title: 'Ticket Status Updated',
+                message: `Your ticket ${ticket.ticketNumber} status has changed to ${newStatus}.`,
+                type: 'info',
+                link: `/tickets/${ticketId}`
+            }).catch(e => console.error('Notification error', e));
         }
 
         return true;

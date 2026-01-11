@@ -21,6 +21,7 @@ export const Dashboard = () => {
         const isSupport = userRoles.includes('support') || isAdmin;
 
         // Subscribe to necessary data
+        Meteor.subscribe('users.current');
         Meteor.subscribe('tickets.myTickets');
         if (isSupport) {
             Meteor.subscribe('tickets.assigned');
@@ -68,7 +69,7 @@ export const Dashboard = () => {
             </div>
 
             {/* SLA Escalation Monitor (Only visible to Support/Admin) */}
-            {isSupport && <EscalationMonitor />}
+            {isSupport && <EscalationMonitor canView={true} />}
 
             {/* Quick Actions */}
             <div className="mb-8">
