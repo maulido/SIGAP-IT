@@ -22,7 +22,7 @@ Meteor.methods({
         }
 
         // Only support/admin can add internal comments
-        if (isInternal && !Roles.userIsInRole(this.userId, ['support', 'admin'])) {
+        if (isInternal && !(await Roles.userIsInRoleAsync(this.userId, ['support', 'admin']))) {
             throw new Meteor.Error('not-authorized', 'Only IT Support can add internal comments');
         }
 
@@ -30,7 +30,7 @@ Meteor.methods({
         const canComment =
             ticket.reporterId === this.userId ||
             ticket.assignedToId === this.userId ||
-            Roles.userIsInRole(this.userId, ['support', 'admin']);
+            (await Roles.userIsInRoleAsync(this.userId, ['support', 'admin']));
 
         if (!canComment) {
             throw new Meteor.Error('not-authorized', 'You cannot comment on this ticket');

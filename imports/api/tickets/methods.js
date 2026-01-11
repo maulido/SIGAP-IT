@@ -109,7 +109,7 @@ Meteor.methods({
             throw new Meteor.Error('not-authorized');
         }
 
-        if (!Roles.userIsInRole(this.userId, ['support', 'admin'])) {
+        if (!(await Roles.userIsInRoleAsync(this.userId, ['support', 'admin']))) {
             throw new Meteor.Error('not-authorized', 'Only IT Support can assign tickets');
         }
 
@@ -187,7 +187,7 @@ Meteor.methods({
             throw new Meteor.Error('not-authorized');
         }
 
-        if (!Roles.userIsInRole(this.userId, ['support', 'admin'])) {
+        if (!(await Roles.userIsInRoleAsync(this.userId, ['support', 'admin']))) {
             throw new Meteor.Error('not-authorized', 'Only IT Support can change ticket status');
         }
 
@@ -426,7 +426,7 @@ Meteor.methods({
             throw new Meteor.Error('not-authorized');
         }
 
-        if (!Roles.userIsInRole(this.userId, ['support', 'admin'])) {
+        if (!(await Roles.userIsInRoleAsync(this.userId, ['support', 'admin']))) {
             throw new Meteor.Error('not-authorized', 'Only IT Support can link tickets');
         }
 
@@ -500,7 +500,7 @@ Meteor.methods({
             throw new Meteor.Error('not-authorized');
         }
 
-        if (!Roles.userIsInRole(this.userId, ['support', 'admin'])) {
+        if (!(await Roles.userIsInRoleAsync(this.userId, ['support', 'admin']))) {
             throw new Meteor.Error('not-authorized', 'Only IT Support can unlink tickets');
         }
 

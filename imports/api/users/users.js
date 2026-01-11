@@ -26,7 +26,7 @@ Meteor.methods({
 
             // Only admins can create users with roles other than 'user'
             if (role !== 'user' && this.userId) {
-                if (!Roles.userIsInRole(this.userId, 'admin')) {
+                if (!(await Roles.userIsInRoleAsync(this.userId, 'admin'))) {
                     throw new Meteor.Error('not-authorized', 'Only admins can create support/admin users');
                 }
             }
@@ -161,7 +161,7 @@ Meteor.methods({
             throw new Meteor.Error('not-authorized');
         }
 
-        if (!Roles.userIsInRole(this.userId, 'admin')) {
+        if (!(await Roles.userIsInRoleAsync(this.userId, 'admin'))) {
             throw new Meteor.Error('not-authorized', 'Only admins can deactivate users');
         }
 
@@ -190,7 +190,7 @@ Meteor.methods({
             throw new Meteor.Error('not-authorized');
         }
 
-        if (!Roles.userIsInRole(this.userId, 'admin')) {
+        if (!(await Roles.userIsInRoleAsync(this.userId, 'admin'))) {
             throw new Meteor.Error('not-authorized', 'Only admins can activate users');
         }
 
@@ -220,7 +220,7 @@ Meteor.methods({
             throw new Meteor.Error('not-authorized');
         }
 
-        if (!Roles.userIsInRole(this.userId, 'admin')) {
+        if (!(await Roles.userIsInRoleAsync(this.userId, 'admin'))) {
             throw new Meteor.Error('not-authorized', 'Only admins can change user roles');
         }
 
@@ -260,7 +260,7 @@ Meteor.methods({
             throw new Meteor.Error('not-authorized');
         }
 
-        if (!Roles.userIsInRole(this.userId, 'admin')) {
+        if (!(await Roles.userIsInRoleAsync(this.userId, 'admin'))) {
             throw new Meteor.Error('not-authorized', 'Only admins can reset passwords');
         }
 

@@ -58,12 +58,12 @@ Meteor.publish('tickets.all', function (filters = {}) {
 });
 
 // Publication for ticket family (parent and children)
-Meteor.publish('tickets.family', function (ticketId) {
+Meteor.publish('tickets.family', async function (ticketId) {
     if (!this.userId) {
         return this.ready();
     }
 
-    const ticket = Tickets.findOne(ticketId);
+    const ticket = await Tickets.findOneAsync(ticketId);
     if (!ticket) {
         return this.ready();
     }
