@@ -267,9 +267,7 @@ Meteor.startup(async () => {
     console.log('✅ Default Category configurations created');
   }
 
-  Meteor.publish('categoryConfigs.all', function () {
-    return CategoryConfigs.find({ isActive: true });
-  });
+
 
   console.log('✅ SIGAP-IT Server Ready!');
   console.log('📍 Visit http://localhost:3000');
