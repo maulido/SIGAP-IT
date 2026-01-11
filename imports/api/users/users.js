@@ -285,19 +285,23 @@ Meteor.methods({
 });
 
 // Publications
-Meteor.publish('users.all', function () {
+Meteor.publish('users.all', async function () {
     if (!this.userId) {
         return this.ready();
     }
 
-    // Temporarily simplified for debugging
-    // TODO: Add role check back after confirming subscription works
+    // Only admins can see all users with full details
+    if (!(await Roles.userIsInRoleAsync(this.userId, 'admin'))) {
+        return this.ready();
+    }
+
     return Meteor.users.find({}, {
         fields: {
             emails: 1,
             profile: 1,
             roles: 1,
             createdAt: 1,
+            status: 1 // Add status field if needed
         },
     });
 });

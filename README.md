@@ -103,6 +103,33 @@ SIGAP-IT is a comprehensive helpdesk ticketing system designed to streamline IT 
 
 ---
 
+## 🚀 Deployment
+
+### Option 1: Meteor Galaxy (Recommended)
+```bash
+meteor deploy <your-app-name>.meteorapp.com --mongo-url <your-mongo-url>
+```
+
+### Option 2: Custom Node.js Server
+1. **Build the bundle:**
+   ```bash
+   meteor build ../output --directory
+   ```
+2. **Install dependencies:**
+   ```bash
+   cd ../output/bundle/programs/server
+   npm install
+   ```
+3. **Run the app:**
+   ```bash
+   export MONGO_URL='mongodb://user:pass@host:port/dbname'
+   export ROOT_URL='http://example.com'
+   export MAIL_URL='smtps://...'
+   node ../../main.js
+   ```
+
+---
+
 ## 🔐 Default Credentials
 
 The system creates a default admin account on first startup:
@@ -157,12 +184,29 @@ SIGAP-IT2/
 
 ---
 
+## ⚙️ Configuration
+
+### Environment Variables
+To enable Email Notifications (required for SLA Escalations), set the following environment variable:
+
+```bash
+MAIL_URL="smtps://username:password@smtp.provider.com:465"
+```
+
+### Background Jobs
+The system automatically starts the following jobs:
+- `pending-timeout`: Checks for expired pending tickets (Every minute).
+- `sla-monitor`: Checks for SLA violations (Every 15 minutes).
+
+---
+
 ## 🛣️ Roadmap
 
 - [x] **Phase 1: Core System** (Ticketing, Users, SLA, Worklogs)
 - [x] **Phase 2: Analytics & Reports** (Dashboard, PDF/Excel Export, Performance)
-- [ ] **Phase 3: Automation** (Auto-close, SLA Escalation, Email Notifications)
-- [ ] **Phase 4: Mobile App** (React Native)
+- [x] **Phase 3: Automation** (SLA Escalation, Email Notifications)
+- [x] **Phase 4: Mobile Optimization** (Responsive Layouts)
+- [ ] **Phase 5: Native Mobile App** (React Native - Future)
 
 ---
 
