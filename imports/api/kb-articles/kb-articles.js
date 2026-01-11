@@ -18,3 +18,23 @@ export const KBArticles = new Mongo.Collection('kbArticles');
 //   createdAt: Date,
 //   updatedAt: Date,
 // }
+
+if (Meteor.isServer) {
+    Meteor.startup(() => {
+        // Create text index for search
+        KBArticles.rawCollection().createIndex({
+            title: 'text',
+            content: 'text',
+            tags: 'text',
+            keywords: 'text'
+        }, {
+            weights: {
+                title: 10,
+                keywords: 5,
+                tags: 5,
+                content: 1
+            },
+            name: 'KBDataTextIndex'
+        }).catch(e => console.error('Error creating KB index:', e));
+    });
+}

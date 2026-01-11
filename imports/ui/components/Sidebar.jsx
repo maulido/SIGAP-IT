@@ -2,7 +2,6 @@ import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTracker } from 'meteor/react-meteor-data';
 import { Meteor } from 'meteor/meteor';
-import { Roles } from '../../api/roles/roles';
 import {
     LayoutDashboard,
     Ticket,
@@ -14,14 +13,15 @@ import {
     BarChart3,
     LogOut,
     X,
-    Menu
+    ChevronLeft,
+    ChevronRight
 } from 'lucide-react';
 
-export const Sidebar = ({ isOpen, onClose }) => {
+export const Sidebar = ({ isOpen, onClose, isCollapsed, toggleCollapse }) => {
     const location = useLocation();
     const navigate = useNavigate();
 
-    const { user, isLoading } = useTracker(() => {
+    const { user } = useTracker(() => {
         const handle = Meteor.subscribe('users.current');
         return {
             user: Meteor.user(),
@@ -38,17 +38,6 @@ export const Sidebar = ({ isOpen, onClose }) => {
     // Check roles directly from user object
     const isAdmin = user && user.roles && user.roles.includes('admin');
     const isSupport = user && user.roles && (user.roles.includes('support') || user.roles.includes('admin'));
-
-    // Debug logging
-    if (user) {
-        console.log('[Sidebar] User data:', {
-            email: user.emails?.[0]?.address,
-            roles: user.roles,
-            isAdmin,
-            isSupport
-        });
-    }
-
 
     const isActive = (path) => {
         if (path === '/dashboard') {
@@ -129,43 +118,44 @@ export const Sidebar = ({ isOpen, onClose }) => {
             {/* Sidebar */}
             <aside
                 className={`
-                    fixed top-0 left-0 z-50 h-screen w-64 bg-white shadow-xl
-                    transform transition-transform duration-300 ease-in-out
-                    lg:translate-x-0
-                    ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+                    fixed left-0 z-40 bg-white shadow-xl flex flex-col
+                    transform transition-all duration-300 ease-in-out
+                    h-full lg:h-[calc(100vh-4rem)] lg:top-16
+                    top-0 
+                    ${isCollapsed ? 'w-20' : 'w-64'}
+                    ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
                 `}
             >
-                {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-gray-200">
-                    <Link to="/dashboard" className="flex items-center" onClick={onClose}>
-                        <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-                            SIGAP-IT
-                        </h1>
-                    </Link>
+                {/* Internal Header (Mobile Only - for Close Button) */}
+                <div className="flex lg:hidden items-center justify-between p-4 h-16 border-b border-gray-200">
+                    <span className="font-bold text-xl bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+                        Menu
+                    </span>
                     <button
                         onClick={onClose}
-                        className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                        className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
                     >
                         <X className="w-5 h-5 text-gray-600" />
                     </button>
                 </div>
 
                 {/* Navigation Menu */}
-                <nav className="flex-1 overflow-y-auto p-4 space-y-1">
+                <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-1">
                     {visibleMenuItems.map((item, index) => {
                         const Icon = item.icon;
                         const active = isActive(item.path);
 
                         return (
                             <React.Fragment key={item.path}>
-                                {item.divider && index > 0 && (
+                                {item.divider && index > 0 && !isCollapsed && (
                                     <div className="my-2 border-t border-gray-200" />
                                 )}
                                 <Link
                                     to={item.path}
                                     onClick={onClose}
+                                    title={isCollapsed ? item.name : ''}
                                     className={`
-                                        flex items-center space-x-3 px-4 py-3 rounded-lg
+                                        flex items-center ${isCollapsed ? 'justify-center' : 'space-x-3'} px-3 py-3 rounded-lg
                                         transition-all duration-200
                                         ${active
                                             ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-md'
@@ -173,8 +163,8 @@ export const Sidebar = ({ isOpen, onClose }) => {
                                         }
                                     `}
                                 >
-                                    <Icon className={`w-5 h-5 ${active ? 'text-white' : 'text-gray-500'}`} />
-                                    <span className="font-medium">{item.name}</span>
+                                    <Icon className={`w-6 h-6 ${active ? 'text-white' : 'text-gray-500'}`} />
+                                    {!isCollapsed && <span className="font-medium whitespace-nowrap">{item.name}</span>}
                                 </Link>
                             </React.Fragment>
                         );
@@ -183,20 +173,32 @@ export const Sidebar = ({ isOpen, onClose }) => {
 
                 {/* User Profile & Logout */}
                 <div className="border-t border-gray-200 p-4">
-                    <div className="mb-3 px-4 py-2 bg-gray-50 rounded-lg">
-                        <p className="text-sm font-medium text-gray-900 truncate">
-                            {user?.profile?.fullName || user?.emails?.[0]?.address || 'User'}
-                        </p>
-                        <p className="text-xs text-gray-500 capitalize">
-                            {(user?.roles?.[0] || 'user').charAt(0).toUpperCase() + (user?.roles?.[0] || 'user').slice(1)}
-                        </p>
-                    </div>
+                    {!isCollapsed && (
+                        <div className="mb-3 px-3 py-2 bg-gray-50 rounded-lg overflow-hidden">
+                            <p className="text-sm font-medium text-gray-900 truncate">
+                                {user?.profile?.fullName || user?.emails?.[0]?.address || 'User'}
+                            </p>
+                            <p className="text-xs text-gray-500 capitalize truncate">
+                                {(user?.roles?.[0] || 'user')}
+                            </p>
+                        </div>
+                    )}
+
                     <button
                         onClick={handleLogout}
-                        className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
+                        title={isCollapsed ? "Logout" : ""}
+                        className={`w-full flex items-center ${isCollapsed ? 'justify-center' : 'space-x-3'} px-3 py-3 rounded-lg text-red-600 hover:bg-red-50 transition-colors`}
                     >
                         <LogOut className="w-5 h-5" />
-                        <span className="font-medium">Logout</span>
+                        {!isCollapsed && <span className="font-medium">Logout</span>}
+                    </button>
+
+                    {/* Desktop Collapse Toggle */}
+                    <button
+                        onClick={toggleCollapse}
+                        className="hidden lg:flex w-full items-center justify-center mt-2 pt-2 border-t border-gray-100 text-gray-400 hover:text-gray-600"
+                    >
+                        {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
                     </button>
                 </div>
             </aside>
