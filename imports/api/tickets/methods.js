@@ -175,6 +175,79 @@ Meteor.methods({
         return true;
     },
 
+    async 'tickets.assignTo'({ ticketId, assigneeId }) {
+        check(ticketId, String);
+        check(assigneeId, String);
+
+        if (!this.userId) {
+            throw new Meteor.Error('not-authorized');
+        }
+
+        // Only admins can manually assign tickets to others
+        if (!(await Roles.userIsInRoleAsync(this.userId, 'admin'))) {
+            throw new Meteor.Error('not-authorized', 'Only admins can manually assign tickets');
+        }
+
+        const ticket = await Tickets.findOneAsync(ticketId);
+        if (!ticket) {
+            throw new Meteor.Error('not-found', 'Ticket not found');
+        }
+
+        const assignee = await Meteor.users.findOneAsync(assigneeId);
+        if (!assignee) {
+            throw new Meteor.Error('user-not-found', 'Assignee not found');
+        }
+
+        // Verify assignee has support or admin role
+        if (!(await Roles.userIsInRoleAsync(assigneeId, ['support', 'admin']))) {
+            throw new Meteor.Error('invalid-assignee', 'User must be IT Support or Admin');
+        }
+
+        // Update ticket
+        await Tickets.updateAsync(ticketId, {
+            $set: {
+                assignedToId: assigneeId,
+                status: 'In Progress',
+                assignedAt: new Date(),
+                updatedAt: new Date(),
+            },
+        });
+
+        // Create worklog
+        await Worklogs.insertAsync({
+            ticketId,
+            userId: this.userId,
+            fromStatus: ticket.status,
+            toStatus: 'In Progress',
+            worklog: `Ticket assigned to ${assignee.profile?.fullName || assignee.emails[0].address} by Admin`,
+            createdAt: new Date(),
+        });
+
+        // Log audit
+        await AuditLogs.insertAsync({
+            userId: this.userId,
+            action: 'ticket_assigned_manual',
+            entityType: 'ticket',
+            entityId: ticketId,
+            metadata: {
+                ticketNumber: ticket.ticketNumber,
+                assigneeId,
+                assigneeName: assignee.profile?.fullName
+            },
+            createdAt: new Date(),
+        });
+
+        // Send email notification to assignee
+        const reporter = await Meteor.users.findOneAsync(ticket.reporterId);
+        if (reporter && assignee && ticket) {
+            EmailService.sendTicketAssignedEmail(ticket, reporter, assignee).catch(err => {
+                console.error('Error sending ticket assigned email:', err);
+            });
+        }
+
+        return true;
+    },
+
     async 'tickets.changeStatus'({ ticketId, newStatus, worklog, timeSpent, pendingReasonId, pendingNotes, customTimeout }) {
         check(ticketId, String);
         check(newStatus, String);

@@ -14,7 +14,8 @@ import {
     LogOut,
     X,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    Monitor
 } from 'lucide-react';
 
 export const Sidebar = ({ isOpen, onClose, isCollapsed, toggleCollapse }) => {
@@ -72,11 +73,17 @@ export const Sidebar = ({ isOpen, onClose, isCollapsed, toggleCollapse }) => {
             roles: ['user', 'support', 'admin']
         },
         {
+            name: 'Monitor Tickets',
+            path: '/tickets/all',
+            icon: Monitor,
+            roles: ['support', 'admin'],
+            divider: true
+        },
+        {
             name: 'Open Tickets',
             path: '/tickets/open',
             icon: FolderOpen,
-            roles: ['support', 'admin'],
-            divider: true
+            roles: ['support', 'admin']
         },
         {
             name: 'Assigned to Me',

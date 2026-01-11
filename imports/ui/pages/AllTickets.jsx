@@ -1,0 +1,221 @@
+import React, { useState } from 'react';
+import { Meteor } from 'meteor/meteor';
+import { useTracker } from 'meteor/react-meteor-data';
+import { Link } from 'react-router-dom';
+import { Tickets } from '../../api/tickets/tickets';
+import { Roles } from '../../api/roles/roles';
+import moment from 'moment';
+
+const STATUS_COLORS = {
+    'Open': 'bg-blue-100 text-blue-800',
+    'In Progress': 'bg-purple-100 text-purple-800',
+    'Pending': 'bg-yellow-100 text-yellow-800',
+    'Resolved': 'bg-green-100 text-green-800',
+    'Closed': 'bg-gray-100 text-gray-800',
+    'Rejected': 'bg-red-100 text-red-800',
+};
+
+const PRIORITY_COLORS = {
+    'Low': 'bg-gray-100 text-gray-800',
+    'Medium': 'bg-blue-100 text-blue-800',
+    'High': 'bg-orange-100 text-orange-800',
+    'Critical': 'bg-red-100 text-red-800',
+};
+
+export const AllTickets = () => {
+    const [filter, setFilter] = useState({ category: '', priority: '', location: '', status: '' });
+
+    const { tickets, isLoading, userRoles, users } = useTracker(() => {
+        const query = {};
+        if (filter.status) query.status = filter.status;
+        if (filter.priority) query.priority = filter.priority;
+        if (filter.category) query.category = filter.category;
+
+        const handle = Meteor.subscribe('tickets.all', filter);
+        const usersHandle = Meteor.subscribe('users.names');
+        const currentUser = Meteor.user();
+        const userRoles = currentUser ? Roles.getRolesForUser(currentUser._id) : [];
+
+        // Client-side filtering as well to ensure responsiveness if publication returns extra
+        // But mainly relying on publication for efficiency if implemented there.
+        // The publication takes filters but let's query purely on client for simplified reactiveness 
+        // if the publication just dumps active tickets.
+        // Actually, existing 'tickets.all' uses arguments. passing filter state to subscribe.
+
+        return {
+            tickets: Tickets.find({}, { sort: { createdAt: -1 } }).fetch(),
+            users: Meteor.users.find().fetch(),
+            isLoading: !handle.ready() || !usersHandle.ready(),
+            userRoles,
+        };
+    });
+
+    const isSupport = userRoles.includes('support') || userRoles.includes('admin');
+
+    if (!isSupport) {
+        return (
+            <div className="card text-center py-12">
+                <h3 className="text-lg font-medium text-gray-900">Access Denied</h3>
+                <p className="text-gray-600 mt-2">Only IT Support can access this page.</p>
+            </div>
+        );
+    }
+
+    if (isLoading) {
+        return (
+            <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+            </div>
+        );
+    }
+
+    // Apply strict client-side filtering to match UI state
+    const filteredTickets = tickets.filter(ticket => {
+        if (filter.category && ticket.category !== filter.category) return false;
+        if (filter.priority && ticket.priority !== filter.priority) return false;
+        if (filter.status && ticket.status !== filter.status) return false;
+        if (filter.location && !ticket.location.toLowerCase().includes(filter.location.toLowerCase())) return false;
+        return true;
+    });
+
+    const categories = [...new Set(tickets.map(t => t.category))];
+    const priorities = ['Low', 'Medium', 'High', 'Critical'];
+    const statuses = ['Open', 'In Progress', 'Pending', 'Resolved', 'Closed', 'Rejected'];
+
+    const getUserName = (userId) => {
+        if (!userId) return 'Unassigned';
+        const user = users.find(u => u._id === userId);
+        return user?.profile?.fullName || 'Unknown User';
+    };
+
+    return (
+        <div>
+            <div className="mb-6">
+                <h1 className="text-3xl font-bold text-gray-900">All Tickets Monitoring</h1>
+                <p className="text-gray-600 mt-1">Monitor all ticket activities across the system</p>
+            </div>
+
+            {/* Filters */}
+            <div className="card mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                        <select
+                            value={filter.status}
+                            onChange={(e) => setFilter({ ...filter, status: e.target.value })}
+                            className="input-field"
+                        >
+                            <option value="">All Statuses</option>
+                            {statuses.map(status => (
+                                <option key={status} value={status}>{status}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                        <select
+                            value={filter.category}
+                            onChange={(e) => setFilter({ ...filter, category: e.target.value })}
+                            className="input-field"
+                        >
+                            <option value="">All Categories</option>
+                            {categories.map(cat => (
+                                <option key={cat} value={cat}>{cat}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+                        <select
+                            value={filter.priority}
+                            onChange={(e) => setFilter({ ...filter, priority: e.target.value })}
+                            className="input-field"
+                        >
+                            <option value="">All Priorities</option>
+                            {priorities.map(pri => (
+                                <option key={pri} value={pri}>{pri}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
+                        <input
+                            type="text"
+                            value={filter.location}
+                            onChange={(e) => setFilter({ ...filter, location: e.target.value })}
+                            placeholder="Search location..."
+                            className="input-field"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {filteredTickets.length === 0 ? (
+                <div className="card text-center py-12">
+                    <h3 className="mt-2 text-sm font-medium text-gray-900">No tickets found</h3>
+                    <p className="mt-1 text-sm text-gray-500">There are no tickets matching your filters.</p>
+                </div>
+            ) : (
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Ticket
+                                </th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Status
+                                </th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Assigned To
+                                </th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Category
+                                </th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Created
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {filteredTickets.map(ticket => (
+                                <tr key={ticket._id} className="hover:bg-gray-50">
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="flex flex-col">
+                                            <Link to={`/tickets/${ticket._id}`} className="text-sm font-medium text-primary-600 hover:text-primary-900">
+                                                {ticket.ticketNumber}
+                                            </Link>
+                                            <span className="text-xs text-gray-500 line-clamp-1 max-w-xs">{ticket.title}</span>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="flex flex-col space-y-1">
+                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full w-fit ${STATUS_COLORS[ticket.status]}`}>
+                                                {ticket.status}
+                                            </span>
+                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full w-fit ${PRIORITY_COLORS[ticket.priority]}`}>
+                                                {ticket.priority}
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="text-sm text-gray-900">
+                                            {getUserName(ticket.assignedToId)}
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="text-sm text-gray-900">{ticket.category}</div>
+                                        <div className="text-xs text-gray-500">{ticket.location}</div>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {moment(ticket.createdAt).fromNow()}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+    );
+};

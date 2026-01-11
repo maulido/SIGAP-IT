@@ -46,9 +46,27 @@ import '../imports/api/escalations/publications';
 import './jobs/pending-timeout';
 import './jobs/sla-monitor';
 import './jobs/sla-escalation';
+import './jobs/auto-close-tickets';
 
 // Import verification methods (TEMPORARY)
 import './verification_methods';
+
+// KF-32: Audit Trail for Logout
+Accounts.onLogout(async (session) => {
+  if (session.user) {
+    try {
+      await AuditLogs.insertAsync({
+        userId: session.user._id,
+        action: 'logout',
+        metadata: { connectionId: session.connection.id },
+        createdAt: new Date(),
+      });
+      // console.log(`User ${session.user._id} logged out`);
+    } catch (err) {
+      console.error('Error logging logout event:', err);
+    }
+  }
+});
 
 // Password hashing with bcryptjs
 const hashPassword = (password) => {

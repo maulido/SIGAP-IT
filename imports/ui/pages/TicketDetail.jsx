@@ -96,7 +96,12 @@ export const TicketDetail = () => {
     const [newStatus, setNewStatus] = useState('');
     const [worklog, setWorklog] = useState('');
     const [reopenReason, setReopenReason] = useState('');
+
     const [error, setError] = useState('');
+
+    // Admin Assign states
+    const [showAssignModal, setShowAssignModal] = useState(false);
+    const [selectedAssignee, setSelectedAssignee] = useState('');
 
     // Pending workflow states
     const [pendingReasonId, setPendingReasonId] = useState('');
@@ -114,6 +119,9 @@ export const TicketDetail = () => {
             const worklogsHandle = Meteor.subscribe('worklogs.byTicket', id);
             const attachmentsHandle = Meteor.subscribe('attachments.byTicket', id);
             const usersHandle = Meteor.subscribe('users.names');
+            // If admin, subscribe to active users to get roles for assignment dropdown
+            const activeUsersHandle = Meteor.subscribe('users.active');
+
             const pendingReasonsHandle = Meteor.subscribe('pendingReasons.active');
             const ratingsHandle = Meteor.subscribe('ratings.byTicket', id);
             const familyHandle = Meteor.subscribe('tickets.family', id);
@@ -128,6 +136,7 @@ export const TicketDetail = () => {
                 worklogsHandle.ready() &&
                 attachmentsHandle.ready() &&
                 usersHandle.ready() &&
+                // activeUsersHandle.ready() && // Optional, can render without full list initially
                 pendingReasonsHandle.ready() &&
                 ratingsHandle.ready() &&
                 familyHandle.ready() &&
@@ -175,7 +184,8 @@ export const TicketDetail = () => {
     // Use currentUser.roles directly instead of Roles.getRolesForUser
     const userRoles = currentUser?.roles || [];
 
-    const isSupport = userRoles.includes('support') || userRoles.includes('admin');
+    const isAdmin = userRoles.includes('admin');
+    const isSupport = userRoles.includes('support') || isAdmin;
     const isReporter = ticket?.reporterId === currentUser?._id;
     const isAssigned = ticket?.assignedToId === currentUser?._id;
 
@@ -211,6 +221,30 @@ export const TicketDetail = () => {
 
         try {
             await Meteor.callAsync('tickets.assignToSelf', id);
+        } catch (err) {
+            setError(err.reason || 'Failed to assign ticket');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleAdminAssign = async (e) => {
+        e.preventDefault();
+        if (!selectedAssignee) {
+            setError('Please select a support agent');
+            return;
+        }
+
+        setIsSubmitting(true);
+        setError('');
+
+        try {
+            await Meteor.callAsync('tickets.assignTo', {
+                ticketId: id,
+                assigneeId: selectedAssignee
+            });
+            setShowAssignModal(false);
+            setSelectedAssignee('');
         } catch (err) {
             setError(err.reason || 'Failed to assign ticket');
         } finally {
@@ -406,6 +440,14 @@ export const TicketDetail = () => {
                             Assign to Self
                         </button>
                     )}
+                    {isAdmin && (ticket.status === 'Open' || ticket.status === 'In Progress') && (
+                        <button
+                            onClick={() => setShowAssignModal(true)}
+                            className="btn-primary bg-purple-600 hover:bg-purple-700"
+                        >
+                            {ticket.assignedToId ? 'Reassign...' : 'Assign To...'}
+                        </button>
+                    )}
                     {canChangeStatus && (
                         <button
                             onClick={() => setShowStatusModal(true)}
@@ -428,6 +470,57 @@ export const TicketDetail = () => {
             {error && (
                 <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
                     {error}
+                </div>
+            )}
+
+            {/* Assign To Modal */}
+            {showAssignModal && (
+                <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 max-w-md w-full">
+                        <h3 className="text-lg font-bold mb-4">Assign Ticket</h3>
+                        <form onSubmit={handleAdminAssign}>
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Select Support Agent
+                                </label>
+                                <select
+                                    value={selectedAssignee}
+                                    onChange={(e) => setSelectedAssignee(e.target.value)}
+                                    className="input-field"
+                                    required
+                                >
+                                    <option value="">-- Select --</option>
+                                    {users
+                                        .filter(u => u.roles && (u.roles.includes('support') || u.roles.includes('admin')) && u._id !== ticket.reporterId)
+                                        .map(u => (
+                                            <option key={u._id} value={u._id}>
+                                                {u.profile?.fullName || u.emails[0].address} ({u.roles.join(', ')})
+                                            </option>
+                                        ))
+                                    }
+                                </select>
+                            </div>
+                            <div className="flex justify-end space-x-3">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowAssignModal(false);
+                                        setSelectedAssignee('');
+                                    }}
+                                    className="btn-secondary"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isSubmitting}
+                                    className="btn-primary"
+                                >
+                                    {isSubmitting ? 'Assigning...' : 'Assign'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             )}
 
