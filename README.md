@@ -1,172 +1,177 @@
 # SIGAP-IT - Sistem Informasi Gangguan & Penanganan IT
 
-IT Support Ticketing System built with Meteor, React, MongoDB, and TailwindCSS.
+IT Support Ticketing System built with Meteor 3.x, React 18, MongoDB, and TailwindCSS.
 
-## Features (Phase 1)
+![SIGAP-IT Dashboard](https://via.placeholder.com/800x400?text=SIGAP-IT+Dashboard+Preview)
 
-✅ **User Management**
-- Role-based access control (User, IT Support, Admin)
-- User authentication and authorization
-- User profile management
+## 🚀 Overview
 
-✅ **Ticket Management**
-- Create tickets with auto-generated ticket numbers
-- Duplicate ticket detection
-- Ticket listing and viewing
-- Status tracking (Open, In Progress, Pending, Resolved, Closed, Rejected)
-- Priority levels (Low, Medium, High, Critical)
-- Categories (Hardware, Software, Network, Email, Printer, Other)
+SIGAP-IT is a comprehensive helpdesk ticketing system designed to streamline IT support operations. It features a complete workflow from ticket creation to resolution, with advanced capabilities like SLA tracking, performance analytics, and automated reporting.
 
-✅ **Self-Assignment Workflow**
-- IT Support can pick up open tickets
-- Automatic status change to "In Progress"
-- Active ticket limit enforcement
+**Current Status:** ✅ **Production Ready (v1.0)**
 
-✅ **Worklog System**
-- Mandatory worklogs for status changes
-- Complete activity history
+---
 
-✅ **SLA Configuration**
-- Multi-level SLA based on priority
-- Configurable response and resolution times
+## ✨ Features
 
-✅ **Audit Logging**
-- Complete activity tracking
-- Login/logout monitoring
+### 🎫 Core Ticketing
+- **Full Life-cycle Management**: Create, track, and manage tickets from Open to Closed.
+- **Smart Assignment**: Self-assignment workflow for IT Support staff with active ticket limits.
+- **Status Workflow**: Open → In Progress → Pending → Resolved → Closed.
+- **Priority Levels**: Critical, High, Medium, Low with color-coding.
+- **Categorization**: Specific categories for hardware, software, network, etc.
+- **File Attachments**: Upload screenshots and documents to tickets.
+- **Ticket Reopen**: Ability to reopen resolved tickets within a configurable timeframe.
+- **Parent-Child Tickets**: Link related tickets together.
 
-## Tech Stack
+### 📊 Reports & Analytics (New!)
+- **Comprehensive Dashboard**: Real-time overview of ticket status, priority, and trends.
+- **Advanced Reports Page**:
+  - Filter by date date, status, priority, category, and assignee.
+  - Visualize data with interactive charts (Status Distribution, Category Breakdown).
+  - Track KPIs: Total Tickets, Resolved %, SLA Compliance, Avg Resolution Time.
+- **IT Support Performance**: Monitor individual performance metrics and SLA adherence.
+- **Export Functionality**:
+  - 📄 **PDF Export**: Professional reports with auto-pagination.
+  - 📊 **Excel Export**: Detailed data with multiple sheets.
 
-- **Frontend**: React 18 with React Router
-- **Backend**: Meteor 3.3.2
-- **Database**: MongoDB
-- **Styling**: TailwindCSS 3.x
-- **Authentication**: Meteor Accounts
-- **Authorization**: alanning:roles
+### 🧠 Knowledge Base
+- **Article Management**: Create and manage instructional articles.
+- **Public Access**: Users can search and view solutions before creating tickets.
+- **Rich Text**: Support for detailed content.
 
-## Installation
+### ⚡ SLA & Workflows
+- **SLA Engine**: Configurable response and resolution times based on priority.
+- **Business Hours**: Support for business hour calculations.
+- **Worklogs**: Mandatory worklogs for every status change to ensure accountability.
+- **Pending Workflow**: Specific reasons for pending status (Waiting for User, Vendor, etc.) with timeouts.
 
-1. Install Meteor:
+### 👥 User Management
+- **Role-Based Access Control (RBAC)**:
+  - **User**: Create tickets, view own history, access KB.
+  - **IT Support**: Manage tickets, view dashboard, access reports.
+  - **Admin**: Full system control, user management, configuration.
+- **Secure Authentication**: Built on Meteor Accounts with bcrypt.
+
+---
+
+## 🛠️ Tech Stack
+
+- **Framework**: [Meteor 3.3.2](https://www.meteor.com/) (Full-stack JavaScript)
+- **Frontend**: [React 18](https://reactjs.org/)
+- **Routing**: [React Router v6](https://reactrouter.com/)
+- **Database**: [MongoDB](https://www.mongodb.com/)
+- **Styling**: [TailwindCSS 3.x](https://tailwindcss.com/)
+- **Icons**: [Lucide React](https://lucide.dev/)
+- **Charts**: [Chart.js](https://www.chartjs.org/) & [React Chartjs 2](https://react-chartjs-2.js.org/)
+- **Reporting**:
+  - `jspdf` & `jspdf-autotable` (PDF)
+  - `xlsx` (Excel)
+- **Access Control**: `alanning:roles`
+
+---
+
+## 📦 Installation
+
+1. **Install Meteor** (if not already installed):
    ```bash
-   # Windows
+   # Windows (using Chocolatey)
    choco install meteor
-   
+
    # macOS/Linux
    curl https://install.meteor.com/ | sh
    ```
 
-2. Install dependencies:
+2. **Clone the repository:**
    ```bash
-   cd SIGAP-IT2
+   git clone https://github.com/maulido/SIGAP-IT.git
+   cd SIGAP-IT
+   ```
+
+3. **Install dependencies:**
+   ```bash
    meteor npm install
    ```
 
-3. Start the development server:
+4. **Start the application:**
    ```bash
    meteor
    ```
 
-4. Open your browser to `http://localhost:3000`
+5. **Access the app:**
+   Open http://localhost:3000
 
-## Default Credentials
+---
 
-**Admin Account:**
-- Email: `admin@sigap-it.com`
-- Password: `admin123`
+## 🔐 Default Credentials
 
-⚠️ **Important**: Change the default password after first login!
+The system creates a default admin account on first startup:
 
-## Project Structure
+- **Email**: `admin@sigap-it.com`
+- **Password**: `admin123`
+
+> ⚠️ **IMPORTANT**: Please change this password immediately after logging in!
+
+---
+
+## 📂 Project Structure
 
 ```
 SIGAP-IT2/
-├── client/                 # Client-side entry point
-│   ├── main.html
-│   ├── main.jsx
-│   └── main.css           # TailwindCSS configuration
-├── server/                 # Server-side entry point
-│   └── main.js            # Server initialization
+├── client/                 # Client entry point
+├── server/                 # Server entry point
+├── public/                 # Public assets
 ├── imports/
-│   ├── api/               # Meteor collections, methods, and publications
+│   ├── api/                # Backend logic (Collections, Methods, Pubs)
 │   │   ├── tickets/
-│   │   ├── worklogs/
-│   │   ├── comments/
-│   │   ├── sla-configs/
-│   │   ├── audit-logs/
-│   │   └── users/
-│   └── ui/                # React components
-│       ├── layouts/       # Layout components
-│       ├── pages/         # Page components
-│       └── App.jsx        # Main App component with routing
-├── tailwind.config.js     # TailwindCSS configuration
-├── postcss.config.js      # PostCSS configuration
-└── package.json
+│   │   ├── reports/        # Analytics logic
+│   │   ├── dashboard/
+│   │   ├── users/
+│   │   └── ...
+│   └── ui/                 # Frontend (React Components)
+│       ├── components/     # Reusable components
+│       ├── layouts/        # Main layouts
+│       ├── pages/          # Application pages
+│       └── utils/          # Utility functions (Export, formatting)
+└── ...
 ```
 
-## Usage
+---
 
-### Creating a Ticket
+## 📝 Usage Guide
 
-1. Login with your credentials
-2. Click "Create New Ticket" from the dashboard
-3. Fill in the required information:
-   - Title
-   - Description
-   - Category
-   - Priority
-   - Location/Department
-4. Submit the form
-5. System will check for duplicates and generate a unique ticket number
+### Generating Reports
+1. Login as **Admin** or **IT Support**.
+2. Navigate to **Reports** from the sidebar.
+3. Select your desired Date Range and Filters.
+4. Click **Apply Filters**.
+5. View statistics and charts.
+6. Use the **Export to PDF** or **Export to Excel** buttons to download the data.
 
 ### IT Support Workflow
+1. Find tickets in **Open Tickets**.
+2. Click **Assign to Self** to start working.
+3. Update status to **Pending** if waiting for external input.
+4. Log all activities in the **Worklog**.
+5. Mark as **Resolved** when finished.
 
-1. Login as IT Support or Admin
-2. View "Open Tickets" from the navigation
-3. Click "Assign to Self" on any open ticket
-4. Ticket status automatically changes to "In Progress"
-5. Work on the ticket and add comments
-6. Change status with mandatory worklog notes
-7. Mark as "Resolved" when complete
+---
 
-### Admin Functions
+## 🛣️ Roadmap
 
-- Manage users (create, update, deactivate)
-- View all tickets across the system
-- Configure SLA settings
-- Access audit logs
-- Generate reports (coming in Phase 2)
+- [x] **Phase 1: Core System** (Ticketing, Users, SLA, Worklogs)
+- [x] **Phase 2: Analytics & Reports** (Dashboard, PDF/Excel Export, Performance)
+- [ ] **Phase 3: Automation** (Auto-close, SLA Escalation, Email Notifications)
+- [ ] **Phase 4: Mobile App** (React Native)
 
-## Development
+---
 
-### Running Tests
-```bash
-meteor test --driver-package meteortesting:mocha
-```
+## 📄 License
 
-### Building for Production
-```bash
-meteor build ../build --directory
-```
+Proprietary Software - Internal Use Only
 
-## Roadmap
+---
 
-### Phase 2 (Planned)
-- File attachments for tickets
-- Parent-child ticket relationships
-- Advanced SLA monitoring and escalation
-- Email notifications
-- Pending workflow with timeouts
+## 📞 Support
 
-### Phase 3 (Planned)
-- Knowledge base
-- Advanced reporting and analytics
-- Export to PDF/Excel
-- Dashboard charts and graphs
-- Rating and feedback system
-
-## License
-
-Proprietary - Internal Use Only
-
-## Support
-
-For issues or questions, please contact the IT Department.
+For technical support or feature requests, contact the Development Team.
