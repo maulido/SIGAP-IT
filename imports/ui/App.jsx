@@ -18,6 +18,7 @@ import { AdminUsers } from './pages/AdminUsers';
 import { AllTickets } from './pages/AllTickets';
 import { Reports } from './pages/Reports';
 import { AuditLogList } from './pages/AuditLogList';
+import { SupportDataList } from './pages/SupportDataList';
 
 // Layouts
 import { MainLayout } from './layouts/MainLayout';
@@ -64,6 +65,7 @@ export const App = () => (
         <Route path="tickets/all" element={<AllTickets />} />
         <Route path="reports" element={<Reports />} />
         <Route path="audit-logs" element={<AuditLogList />} />
+        <Route path="admin/support-data" element={<SupportDataList />} />
       </Route>
     </Routes>
   </Router>

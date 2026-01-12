@@ -112,6 +112,11 @@ export const TicketDetail = () => {
     const [rating, setRating] = useState(0);
     const [ratingFeedback, setRatingFeedback] = useState('');
 
+    // Link Ticket States
+    const [showLinkModal, setShowLinkModal] = useState(false);
+    const [linkTicketNumber, setLinkTicketNumber] = useState('');
+    const [linkError, setLinkError] = useState('');
+
     const { ticket, comments, worklogs, attachments, users, currentUser, pendingReasons, ticketRating, ticketFamily, isLoading, escalations } = useTracker(() => {
         try {
             const ticketHandle = Meteor.subscribe('tickets.byId', id);
@@ -375,6 +380,51 @@ export const TicketDetail = () => {
         link.click();
     };
 
+    const handleLinkTicket = async (e) => {
+        e.preventDefault();
+        if (!linkTicketNumber.trim()) return;
+
+        setIsSubmitting(true);
+        setLinkError('');
+
+        try {
+            // First search for the ticket to get its ID
+            const ticketToLink = await Meteor.callAsync('tickets.searchByNumber', linkTicketNumber.trim());
+
+            if (!ticketToLink) {
+                setLinkError('Ticket not found');
+                setIsSubmitting(false);
+                return;
+            }
+
+            await Meteor.callAsync('tickets.linkAsChild', {
+                parentTicketId: id,
+                childTicketId: ticketToLink._id
+            });
+
+            setShowLinkModal(false);
+            setLinkTicketNumber('');
+            setLinkError('');
+        } catch (err) {
+            setLinkError(err.reason || 'Failed to link ticket');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleUnlinkChild = async (childId) => {
+        if (!confirm('Are you sure you want to unlink this ticket?')) return;
+
+        try {
+            await Meteor.callAsync('tickets.unlinkChild', {
+                parentTicketId: id,
+                childTicketId: childId
+            });
+        } catch (err) {
+            setError(err.reason || 'Failed to unlink ticket');
+        }
+    };
+
     if (isLoading) {
         return (
             <div className="flex justify-center items-center h-64">
@@ -462,6 +512,14 @@ export const TicketDetail = () => {
                             className="btn-secondary"
                         >
                             Reopen Ticket
+                        </button>
+                    )}
+                    {isSupport && (
+                        <button
+                            onClick={() => setShowLinkModal(true)}
+                            className="btn-secondary"
+                        >
+                            Link Ticket
                         </button>
                     )}
                 </div>
@@ -806,31 +864,43 @@ export const TicketDetail = () => {
                                         </p>
                                         <div className="space-y-2">
                                             {ticketFamily.children.map(child => (
-                                                <Link
-                                                    key={child._id}
-                                                    to={`/tickets/${child._id}`}
-                                                    className="block bg-gray-50 border border-gray-200 rounded-lg p-3 hover:bg-gray-100 transition-colors"
-                                                >
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="flex-1">
-                                                            <p className="text-sm font-medium text-gray-900">
-                                                                {child.ticketNumber}
-                                                            </p>
-                                                            <p className="text-xs text-gray-600 mt-1 line-clamp-2">
-                                                                {child.title}
-                                                            </p>
+                                                <div key={child._id} className="flex items-center space-x-2">
+                                                    <Link
+                                                        to={`/tickets/${child._id}`}
+                                                        className="block flex-1 bg-gray-50 border border-gray-200 rounded-lg p-3 hover:bg-gray-100 transition-colors"
+                                                    >
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex-1">
+                                                                <p className="text-sm font-medium text-gray-900">
+                                                                    {child.ticketNumber}
+                                                                </p>
+                                                                <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+                                                                    {child.title}
+                                                                </p>
+                                                            </div>
+                                                            <span className={`ml-2 px-2 py-1 text-xs font-medium rounded ${child.status === 'Open' ? 'bg-blue-100 text-blue-800' :
+                                                                child.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
+                                                                    child.status === 'Pending' ? 'bg-orange-100 text-orange-800' :
+                                                                        child.status === 'Resolved' ? 'bg-green-100 text-green-800' :
+                                                                            child.status === 'Closed' ? 'bg-gray-100 text-gray-800' :
+                                                                                'bg-red-100 text-red-800'
+                                                                }`}>
+                                                                {child.status}
+                                                            </span>
                                                         </div>
-                                                        <span className={`ml-2 px-2 py-1 text-xs font-medium rounded ${child.status === 'Open' ? 'bg-blue-100 text-blue-800' :
-                                                            child.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
-                                                                child.status === 'Pending' ? 'bg-orange-100 text-orange-800' :
-                                                                    child.status === 'Resolved' ? 'bg-green-100 text-green-800' :
-                                                                        child.status === 'Closed' ? 'bg-gray-100 text-gray-800' :
-                                                                            'bg-red-100 text-red-800'
-                                                            }`}>
-                                                            {child.status}
-                                                        </span>
-                                                    </div>
-                                                </Link>
+                                                    </Link>
+                                                    {isSupport && (
+                                                        <button
+                                                            onClick={() => handleUnlinkChild(child._id)}
+                                                            className="text-gray-400 hover:text-red-600 p-2"
+                                                            title="Unlink"
+                                                        >
+                                                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                            </svg>
+                                                        </button>
+                                                    )}
+                                                </div>
                                             ))}
                                         </div>
                                     </div>
@@ -1142,6 +1212,58 @@ export const TicketDetail = () => {
                                         className="btn-primary"
                                     >
                                         {isSubmitting ? 'Reopening...' : 'Reopen Ticket'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* Link Ticket Modal */}
+            {
+                showLinkModal && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                        <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Link Child Ticket</h3>
+                            <form onSubmit={handleLinkTicket}>
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Child Ticket Number
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={linkTicketNumber}
+                                        onChange={(e) => setLinkTicketNumber(e.target.value.toUpperCase())}
+                                        className="input-field"
+                                        placeholder="e.g., TKT-2026-0005"
+                                        required
+                                    />
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        This ticket will become a sub-ticket of the current ticket.
+                                    </p>
+                                    {linkError && (
+                                        <p className="mt-2 text-sm text-red-600">{linkError}</p>
+                                    )}
+                                </div>
+                                <div className="flex justify-end space-x-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setShowLinkModal(false);
+                                            setLinkTicketNumber('');
+                                            setLinkError('');
+                                        }}
+                                        className="btn-secondary"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={isSubmitting}
+                                        className="btn-primary"
+                                    >
+                                        {isSubmitting ? 'Linking...' : 'Link Ticket'}
                                     </button>
                                 </div>
                             </form>

@@ -16,7 +16,8 @@ import {
     ChevronLeft,
     ChevronRight,
     Monitor,
-    Shield
+    Shield,
+    Database
 } from 'lucide-react';
 
 export const Sidebar = ({ isOpen, onClose, isCollapsed, toggleCollapse }) => {
@@ -109,6 +110,12 @@ export const Sidebar = ({ isOpen, onClose, isCollapsed, toggleCollapse }) => {
             name: 'Audit Logs',
             path: '/audit-logs',
             icon: Shield,
+            roles: ['admin']
+        },
+        {
+            name: 'IT Support Data',
+            path: '/admin/support-data',
+            icon: Database,
             roles: ['admin']
         }
     ];

@@ -46,6 +46,9 @@ import '../imports/api/escalations/publications';
 import '../imports/api/notifications/publications';
 import '../imports/api/category-configs/server/publications';
 import '../imports/api/audit-logs/server/publications';
+import '../imports/api/support-data/server/publications';
+import '../imports/api/support-data/methods';
+import '../imports/api/support-data/support-files';
 
 // Import background jobs
 import './jobs/pending-timeout';
@@ -53,8 +56,7 @@ import './jobs/sla-monitor';
 import './jobs/sla-escalation';
 import './jobs/auto-close-tickets';
 
-// Import verification methods (TEMPORARY)
-// import './verification_methods';
+
 
 // KF-32: Audit Trail for Logout
 Accounts.onLogout(async (session) => {
@@ -278,4 +280,4 @@ Meteor.startup(async () => {
 });
 
 // Import verification script at the end to ensure it runs after seeding
-// import './verify_dynamic_forms';
+import './verify_support_debug';
