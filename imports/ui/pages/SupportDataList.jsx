@@ -7,6 +7,7 @@ import {
     Plus, Search, FileText, Server, Key, Lock, Eye, EyeOff,
     Trash2, Edit, Save, X, Upload, Download, AlertTriangle
 } from 'lucide-react';
+import { DeleteConfirmationModal } from '../components/DeleteConfirmationModal';
 
 export const SupportDataList = () => {
     const [filterType, setFilterType] = useState('all');
@@ -14,6 +15,11 @@ export const SupportDataList = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
     const [decryptedPasswords, setDecryptedPasswords] = useState({});
+
+    // Delete Modal State
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const { supportData, isLoading } = useTracker(() => {
         const handle = Meteor.subscribe('supportData.all');
@@ -32,13 +38,23 @@ export const SupportDataList = () => {
         return matchesType && matchesSearch;
     });
 
-    const handleDelete = async (id) => {
-        if (confirm('Are you sure you want to delete this item?')) {
-            try {
-                await Meteor.callAsync('supportData.remove', id);
-            } catch (error) {
-                alert(error.message);
-            }
+    const handleDelete = (item) => {
+        setItemToDelete(item);
+        setDeleteModalOpen(true);
+    };
+
+    const confirmDelete = async () => {
+        if (!itemToDelete) return;
+
+        setIsDeleting(true);
+        try {
+            await Meteor.callAsync('supportData.remove', itemToDelete._id);
+            setDeleteModalOpen(false);
+            setItemToDelete(null);
+        } catch (error) {
+            alert(error.message);
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -147,7 +163,7 @@ export const SupportDataList = () => {
                                             <Edit size={16} />
                                         </button>
                                         <button
-                                            onClick={() => handleDelete(item._id)}
+                                            onClick={() => handleDelete(item)}
                                             className="p-1.5 text-gray-400 hover:text-red-600 rounded-md hover:bg-red-50"
                                         >
                                             <Trash2 size={16} />
@@ -215,6 +231,16 @@ export const SupportDataList = () => {
                     item={editingItem}
                 />
             )}
+
+            <DeleteConfirmationModal
+                isOpen={deleteModalOpen}
+                onClose={() => setDeleteModalOpen(false)}
+                onConfirm={confirmDelete}
+                title="Delete Support Item"
+                message="Are you sure you want to delete this item? This action usually cannot be undone."
+                itemName={itemToDelete?.title}
+                isDeleting={isDeleting}
+            />
         </div>
     );
 };

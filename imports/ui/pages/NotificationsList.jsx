@@ -5,9 +5,12 @@ import { Notifications } from '../../api/notifications/notifications';
 import { Trash2, CheckCircle } from 'lucide-react';
 import moment from 'moment';
 import { useNavigate } from 'react-router-dom';
+import { DeleteConfirmationModal } from '../components/DeleteConfirmationModal';
 
 export const NotificationsList = () => {
     const navigate = useNavigate();
+    const [isClearModalOpen, setIsClearModalOpen] = React.useState(false);
+    const [isClearing, setIsClearing] = React.useState(false);
 
     // Subscribe to a larger limit for the full list page
     const { notifications, isLoading } = useTracker(() => {
@@ -38,12 +41,19 @@ export const NotificationsList = () => {
         }
     };
 
-    const handleClearAll = async () => {
-        if (!confirm('Are you sure you want to clear all notifications? This cannot be undone.')) return;
+    const handleClearAllClick = () => {
+        setIsClearModalOpen(true);
+    };
+
+    const confirmClearAll = async () => {
+        setIsClearing(true);
         try {
             await Meteor.callAsync('notifications.clearAll');
+            setIsClearModalOpen(false);
         } catch (error) {
             console.error('Error clearing notifications:', error);
+        } finally {
+            setIsClearing(false);
         }
     };
 
@@ -72,7 +82,7 @@ export const NotificationsList = () => {
                         Mark all read
                     </button>
                     <button
-                        onClick={handleClearAll}
+                        onClick={handleClearAllClick}
                         className="btn-danger flex items-center"
                         disabled={notifications.length === 0}
                     >
@@ -133,6 +143,15 @@ export const NotificationsList = () => {
                     ))}
                 </div>
             )}
+
+            <DeleteConfirmationModal
+                isOpen={isClearModalOpen}
+                onClose={() => setIsClearModalOpen(false)}
+                onConfirm={confirmClearAll}
+                title="Clear All Notifications"
+                message="Are you sure you want to clear all notifications? This action cannot be undone."
+                isDeleting={isClearing}
+            />
         </div>
     );
 };

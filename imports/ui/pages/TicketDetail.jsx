@@ -11,6 +11,7 @@ import { Ratings } from '../../api/ratings/ratings';
 import { Roles } from '../../api/roles/roles';
 import { Escalations } from '../../api/escalations/escalations';
 import moment from 'moment';
+import { DeleteConfirmationModal } from '../components/DeleteConfirmationModal';
 
 const EscalationBanner = ({ escalations }) => {
     try {
@@ -116,6 +117,11 @@ export const TicketDetail = () => {
     const [showLinkModal, setShowLinkModal] = useState(false);
     const [linkTicketNumber, setLinkTicketNumber] = useState('');
     const [linkError, setLinkError] = useState('');
+
+    // Unlink Modal State
+    const [isUnlinkModalOpen, setIsUnlinkModalOpen] = useState(false);
+    const [childToUnlink, setChildToUnlink] = useState(null);
+    const [isUnlinking, setIsUnlinking] = useState(false);
 
     const { ticket, comments, worklogs, attachments, users, currentUser, pendingReasons, ticketRating, ticketFamily, isLoading, escalations } = useTracker(() => {
         try {
@@ -412,16 +418,26 @@ export const TicketDetail = () => {
         }
     };
 
-    const handleUnlinkChild = async (childId) => {
-        if (!confirm('Are you sure you want to unlink this ticket?')) return;
+    const handleUnlinkClick = (childId) => {
+        setChildToUnlink(childId);
+        setIsUnlinkModalOpen(true);
+    };
 
+    const confirmUnlink = async () => {
+        if (!childToUnlink) return;
+
+        setIsUnlinking(true);
         try {
             await Meteor.callAsync('tickets.unlinkChild', {
                 parentTicketId: id,
-                childTicketId: childId
+                childTicketId: childToUnlink
             });
+            setIsUnlinkModalOpen(false);
+            setChildToUnlink(null);
         } catch (err) {
             setError(err.reason || 'Failed to unlink ticket');
+        } finally {
+            setIsUnlinking(false);
         }
     };
 
@@ -891,7 +907,7 @@ export const TicketDetail = () => {
                                                     </Link>
                                                     {isSupport && (
                                                         <button
-                                                            onClick={() => handleUnlinkChild(child._id)}
+                                                            onClick={() => handleUnlinkClick(child._id)}
                                                             className="text-gray-400 hover:text-red-600 p-2"
                                                             title="Unlink"
                                                         >
@@ -1271,6 +1287,17 @@ export const TicketDetail = () => {
                     </div>
                 )
             }
-        </div >
+
+
+            <DeleteConfirmationModal
+                isOpen={isUnlinkModalOpen}
+                onClose={() => setIsUnlinkModalOpen(false)}
+                onConfirm={confirmUnlink}
+                title="Unlink Ticket"
+                message="Are you sure you want to unlink this child ticket? This will remove the parent-child relationship but will not delete the ticket itself."
+                isDeleting={isUnlinking}
+                itemName="Child Ticket"
+            />
+        </div>
     );
 };
