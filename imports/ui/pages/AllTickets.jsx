@@ -4,6 +4,8 @@ import { useTracker } from 'meteor/react-meteor-data';
 import { Link } from 'react-router-dom';
 import { Tickets } from '../../api/tickets/tickets';
 import { Roles } from '../../api/roles/roles';
+import { DeleteConfirmationModal } from '../components/DeleteConfirmationModal';
+import { Trash2, CheckCircle, UserPlus, X } from 'lucide-react';
 import moment from 'moment';
 
 const STATUS_COLORS = {
@@ -24,6 +26,11 @@ const PRIORITY_COLORS = {
 
 export const AllTickets = () => {
     const [filter, setFilter] = useState({ category: '', priority: '', location: '', status: '' });
+    // Bulk Action State
+    const [selectedTickets, setSelectedTickets] = useState(new Set());
+    const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [bulkActionType, setBulkActionType] = useState(''); // 'delete', 'status', 'assign'
 
     const { tickets, isLoading, userRoles, users } = useTracker(() => {
         const query = {};
@@ -86,6 +93,77 @@ export const AllTickets = () => {
         if (!userId) return 'Unassigned';
         const user = users.find(u => u._id === userId);
         return user?.profile?.fullName || 'Unknown User';
+    };
+
+    const handleSelectAll = (e) => {
+        if (e.target.checked) {
+            setSelectedTickets(new Set(filteredTickets.map(t => t._id)));
+        } else {
+            setSelectedTickets(new Set());
+        }
+    };
+
+    const handleSelectTicket = (id) => {
+        const newSelected = new Set(selectedTickets);
+        if (newSelected.has(id)) {
+            newSelected.delete(id);
+        } else {
+            newSelected.add(id);
+        }
+        setSelectedTickets(newSelected);
+    };
+
+    const handleBulkDelete = async () => {
+        setIsProcessing(true);
+        try {
+            const ticketIds = Array.from(selectedTickets);
+            await Meteor.callAsync('tickets.bulkAction', {
+                ticketIds,
+                action: 'delete'
+            });
+            setIsBulkDeleteModalOpen(false);
+            setSelectedTickets(new Set());
+        } catch (error) {
+            alert(error.message);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleBulkStatus = async (newStatus) => {
+        if (!confirm(`Set ${selectedTickets.size} tickets to ${newStatus}?`)) return;
+        setIsProcessing(true);
+        try {
+            const ticketIds = Array.from(selectedTickets);
+            await Meteor.callAsync('tickets.bulkAction', {
+                ticketIds,
+                action: 'updateStatus',
+                data: { status: newStatus }
+            });
+            setSelectedTickets(new Set());
+        } catch (error) {
+            alert(error.message);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleBulkAssignSelf = async () => {
+        setIsProcessing(true);
+        try {
+            const ticketIds = Array.from(selectedTickets);
+            const currentUser = Meteor.user();
+            await Meteor.callAsync('tickets.bulkAction', {
+                ticketIds,
+                action: 'assign',
+                data: { assigneeId: currentUser._id }
+            });
+            setSelectedTickets(new Set());
+        } catch (error) {
+            alert(error.message);
+        } finally {
+            setIsProcessing(false);
+        }
     };
 
     return (
@@ -160,6 +238,14 @@ export const AllTickets = () => {
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                             <tr>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-4">
+                                    <input
+                                        type="checkbox"
+                                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                        checked={filteredTickets.length > 0 && selectedTickets.size === filteredTickets.length}
+                                        onChange={handleSelectAll}
+                                    />
+                                </th>
                                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Ticket
                                 </th>
@@ -179,7 +265,15 @@ export const AllTickets = () => {
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                             {filteredTickets.map(ticket => (
-                                <tr key={ticket._id} className="hover:bg-gray-50">
+                                <tr key={ticket._id} className={selectedTickets.has(ticket._id) ? "bg-blue-50" : "hover:bg-gray-50"}>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <input
+                                            type="checkbox"
+                                            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                            checked={selectedTickets.has(ticket._id)}
+                                            onChange={() => handleSelectTicket(ticket._id)}
+                                        />
+                                    </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="flex flex-col">
                                             <Link to={`/tickets/${ticket._id}`} className="text-sm font-medium text-primary-600 hover:text-primary-900">
@@ -216,6 +310,68 @@ export const AllTickets = () => {
                     </table>
                 </div>
             )}
+
+            {/* Bulk Action Bar */}
+            {selectedTickets.size > 0 && (
+                <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-white rounded-full shadow-lg border border-gray-200 px-6 py-3 flex items-center space-x-4 animate-slideUp z-50">
+                    <span className="text-sm font-medium text-gray-700 border-r border-gray-200 pr-4">
+                        {selectedTickets.size} selected
+                    </span>
+
+                    <div className="flex space-x-2">
+                        <button
+                            onClick={handleBulkAssignSelf}
+                            className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-full tooltip"
+                            title="Assign to Me"
+                        >
+                            <UserPlus size={20} />
+                        </button>
+
+                        <div className="h-6 w-px bg-gray-200 mx-1"></div>
+
+                        <button
+                            onClick={() => handleBulkStatus('Resolved')}
+                            className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-full"
+                            title="Mark Resolved"
+                        >
+                            <CheckCircle size={20} />
+                        </button>
+
+                        {/* More dropdown could go here */}
+
+                        {userRoles.includes('admin') && (
+                            <>
+                                <div className="h-6 w-px bg-gray-200 mx-1"></div>
+                                <button
+                                    onClick={() => setIsBulkDeleteModalOpen(true)}
+                                    className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-full"
+                                    title="Delete Selected"
+                                >
+                                    <Trash2 size={20} />
+                                </button>
+                            </>
+                        )}
+
+                        <div className="h-6 w-px bg-gray-200 mx-1"></div>
+
+                        <button
+                            onClick={() => setSelectedTickets(new Set())}
+                            className="p-2 text-gray-400 hover:text-gray-600 rounded-full"
+                        >
+                            <X size={20} />
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            <DeleteConfirmationModal
+                isOpen={isBulkDeleteModalOpen}
+                onClose={() => setIsBulkDeleteModalOpen(false)}
+                onConfirm={handleBulkDelete}
+                title={`Delete ${selectedTickets.size} Tickets`}
+                message={`Are you sure you want to delete ${selectedTickets.size} tickets? This action cannot be undone.`}
+                isDeleting={isProcessing}
+            />
         </div>
     );
 };
