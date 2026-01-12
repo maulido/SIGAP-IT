@@ -1,6 +1,6 @@
 import { Meteor } from 'meteor/meteor';
 import { CannedResponses } from '../canned-responses';
-import { Roles } from '../../api/roles/roles';
+import { Roles } from '../../roles/roles';
 
 Meteor.publish('cannedResponses.all', function () {
     if (!this.userId) {
