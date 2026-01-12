@@ -10,6 +10,7 @@ import { PendingReasons } from '../../api/pending-reasons/pending-reasons';
 import { Ratings } from '../../api/ratings/ratings';
 import { Roles } from '../../api/roles/roles';
 import { Escalations } from '../../api/escalations/escalations';
+import { CannedResponses } from '../../api/canned-responses/canned-responses';
 import moment from 'moment';
 import { DeleteConfirmationModal } from '../components/DeleteConfirmationModal';
 
@@ -123,7 +124,11 @@ export const TicketDetail = () => {
     const [childToUnlink, setChildToUnlink] = useState(null);
     const [isUnlinking, setIsUnlinking] = useState(false);
 
-    const { ticket, comments, worklogs, attachments, users, currentUser, pendingReasons, ticketRating, ticketFamily, isLoading, escalations } = useTracker(() => {
+    // Canned Responses State
+    const [isCannedResponseModalOpen, setIsCannedResponseModalOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const { ticket, comments, worklogs, attachments, users, currentUser, pendingReasons, ticketRating, ticketFamily, isLoading, escalations, cannedResponses } = useTracker(() => {
         try {
             const ticketHandle = Meteor.subscribe('tickets.byId', id);
             const commentsHandle = Meteor.subscribe('comments.byTicket', id);
@@ -136,6 +141,10 @@ export const TicketDetail = () => {
             const pendingReasonsHandle = Meteor.subscribe('pendingReasons.active');
             const ratingsHandle = Meteor.subscribe('ratings.byTicket', id);
             const familyHandle = Meteor.subscribe('tickets.family', id);
+
+            // Canned Responses Subscription
+            const cannedResponsesHandle = Meteor.subscribe('cannedResponses.all');
+
             // Default to empty array if Escalations undefined to prevent crash
             const escalationsHandle = Escalations ? Meteor.subscribe('escalations.byTicket', id) : { ready: () => true };
 
@@ -184,6 +193,7 @@ export const TicketDetail = () => {
                 ticketFamily: { parent: parentTicket, children: childTickets },
                 escalations: Escalations ? Escalations.find({ ticketId: id }).fetch() : [],
                 currentUser,
+                cannedResponses: CannedResponses.find({}, { sort: { title: 1 } }).fetch(),
                 isLoading: !isReady,
             };
         } catch (err) {
@@ -701,6 +711,17 @@ export const TicketDetail = () => {
                                     placeholder="Add a comment... (use @username to mention)"
                                     required
                                 />
+                                {isSupport && (
+                                    <div className="flex justify-between items-center mb-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsCannedResponseModalOpen(true)}
+                                            className="text-xs font-medium text-blue-600 hover:text-blue-800 flex items-center bg-blue-50 px-2 py-1 rounded"
+                                        >
+                                            <span className="mr-1">⚡</span> Insert Saved Reply
+                                        </button>
+                                    </div>
+                                )}
                                 <div className="flex justify-end">
                                     <button
                                         type="submit"
@@ -1298,6 +1319,53 @@ export const TicketDetail = () => {
                 isDeleting={isUnlinking}
                 itemName="Child Ticket"
             />
+
+            {/* Canned Response Selection Modal */}
+            {isCannedResponseModalOpen && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 max-h-[80vh] flex flex-col animate-slideUp">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-semibold text-gray-900">Select Saved Reply</h3>
+                            <button onClick={() => setIsCannedResponseModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                                <span className="text-2xl">&times;</span>
+                            </button>
+                        </div>
+
+                        <input
+                            type="text"
+                            placeholder="Search replies..."
+                            className="input-field mb-4"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            autoFocus
+                        />
+
+                        <div className="overflow-y-auto flex-1 space-y-2 max-h-96">
+                            {cannedResponses
+                                .filter(r => r.title.toLowerCase().includes(searchTerm.toLowerCase()) || r.content.toLowerCase().includes(searchTerm.toLowerCase()))
+                                .map(response => (
+                                    <div
+                                        key={response._id}
+                                        onClick={() => {
+                                            setComment(prev => prev + (prev ? '\n\n' : '') + response.content);
+                                            setIsCannedResponseModalOpen(false);
+                                        }}
+                                        className="p-3 border rounded hover:bg-gray-50 cursor-pointer transition-colors"
+                                    >
+                                        <div className="flex justify-between">
+                                            <h4 className="font-medium text-gray-900">{response.title}</h4>
+                                            <span className="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-600">{response.category}</span>
+                                        </div>
+                                        <p className="text-sm text-gray-500 mt-1 line-clamp-2">{response.content}</p>
+                                    </div>
+                                ))}
+                            {cannedResponses.length === 0 && (
+                                <p className="text-center text-gray-500 py-4">No saved replies found.</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

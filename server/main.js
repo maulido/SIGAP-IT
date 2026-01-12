@@ -25,6 +25,8 @@ import './email-config';
 
 // Import all methods
 import '../imports/api/notifications/methods';
+import '../imports/api/canned-responses/methods';
+import '../imports/api/canned-responses/server/publications';
 import '../imports/api/tickets/methods';
 import '../imports/api/comments/methods';
 import '../imports/api/attachments/methods';

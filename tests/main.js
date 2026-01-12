@@ -2,6 +2,7 @@ import assert from "assert";
 import "./tickets.test";
 import "./reports.test";
 import "./supportData.test";
+import "./auth_notifications.test";
 
 describe("SIGAP-IT2", function () {
   it("package.json has correct name", async function () {
