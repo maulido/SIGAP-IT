@@ -29,7 +29,7 @@ export const SavedReplies = () => {
         return {
             cannedResponses: CannedResponses.find({}, { sort: { category: 1, title: 1 } }).fetch(),
             isLoading: !handle.ready(),
-            userRoles: currentUser ? Roles.getRolesForUser(currentUser._id) : []
+            userRoles: currentUser && currentUser.roles ? currentUser.roles : []
         };
     });
 
