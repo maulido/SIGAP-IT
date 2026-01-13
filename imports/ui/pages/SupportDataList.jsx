@@ -189,6 +189,14 @@ export const SupportDataList = () => {
                                                     </button>
                                                 </div>
                                             </div>
+                                            {item.data?.link && (
+                                                <div className="flex justify-between items-center text-sm mt-1">
+                                                    <span className="text-gray-500">Link:</span>
+                                                    <a href={item.data.link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate max-w-[150px]">
+                                                        {item.data.link}
+                                                    </a>
+                                                </div>
+                                            )}
                                         </>
                                     )}
 
@@ -257,6 +265,7 @@ const ItemFormModal = ({ isOpen, onClose, item }) => {
         category: item?.category || '',
         username: item?.data?.username || '',
         password: '', // Always empty on edit for security, unless intended to change
+        link: item?.data?.link || '', // Add link field
         content: item?.data?.content || '',
         fileId: item?.data?.fileId || '',
         expiryDate: item?.meta?.expiryDate ? new Date(item.meta.expiryDate).toISOString().split('T')[0] : '',
@@ -272,6 +281,7 @@ const ItemFormModal = ({ isOpen, onClose, item }) => {
         if (formData.type === 'credential') {
             dataPayload.username = formData.username;
             dataPayload.password = formData.password;
+            dataPayload.link = formData.link; // Include link in payload
         } else if (formData.type === 'general') {
             dataPayload.content = formData.content;
         } else {
@@ -299,6 +309,7 @@ const ItemFormModal = ({ isOpen, onClose, item }) => {
                         type: modifier.type,
                         category: modifier.category,
                         'data.username': dataPayload.username,
+                        'data.link': dataPayload.link, // Include link in update
                         'data.content': dataPayload.content,
                         'data.fileId': dataPayload.fileId,
                         meta: modifier.meta
@@ -425,6 +436,16 @@ const ItemFormModal = ({ isOpen, onClose, item }) => {
                                         value={formData.password}
                                         onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
                                         className="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-500 uppercase">Login URL / Link</label>
+                                    <input
+                                        type="url"
+                                        value={formData.link} // Changed from formData.url to formData.link to match state
+                                        onChange={(e) => setFormData(prev => ({ ...prev, link: e.target.value }))}
+                                        className="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1"
+                                        placeholder="https://..."
                                     />
                                 </div>
                             </>

@@ -283,3 +283,5 @@ Meteor.startup(async () => {
 
 // Import verification script at the end to ensure it runs after seeding
 import './verify_support_debug';
+import './seed_canned_responses';
+

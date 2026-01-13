@@ -43,6 +43,7 @@ export const Sidebar = ({ isOpen, onClose, isCollapsed, toggleCollapse }) => {
     const isAdmin = user && user.roles && user.roles.includes('admin');
     const isSupport = user && user.roles && (user.roles.includes('support') || user.roles.includes('admin'));
 
+
     const isActive = (path) => {
         if (path === '/dashboard') {
             return location.pathname === '/dashboard' || location.pathname === '/';

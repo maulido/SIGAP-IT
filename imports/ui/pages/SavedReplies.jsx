@@ -118,13 +118,13 @@ export const SavedReplies = () => {
             {/* Search */}
             <div className="mb-6">
                 <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                         <Search size={20} className="text-gray-400" />
                     </div>
                     <input
                         type="text"
                         placeholder="Search templates..."
-                        className="input-field pl-10"
+                        className="input-field !pl-12"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
