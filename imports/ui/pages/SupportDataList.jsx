@@ -439,13 +439,13 @@ const ItemFormModal = ({ isOpen, onClose, item }) => {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-500 uppercase">Login URL / Link</label>
+                                    <label className="block text-xs font-medium text-gray-500 uppercase">Login URL / Link / IP</label>
                                     <input
-                                        type="url"
-                                        value={formData.link} // Changed from formData.url to formData.link to match state
+                                        type="text"
+                                        value={formData.link}
                                         onChange={(e) => setFormData(prev => ({ ...prev, link: e.target.value }))}
                                         className="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1"
-                                        placeholder="https://..."
+                                        placeholder="https://... or 192.168.1.1"
                                     />
                                 </div>
                             </>

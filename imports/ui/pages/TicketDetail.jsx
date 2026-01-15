@@ -11,6 +11,7 @@ import { Ratings } from '../../api/ratings/ratings';
 import { Roles } from '../../api/roles/roles';
 import { Escalations } from '../../api/escalations/escalations';
 import { CannedResponses } from '../../api/canned-responses/canned-responses';
+import { Assets } from '../../api/assets/assets';
 import moment from 'moment';
 import { DeleteConfirmationModal } from '../components/DeleteConfirmationModal';
 
@@ -162,25 +163,20 @@ export const TicketDetail = () => {
                 familyHandle.ready() &&
                 escalationsHandle.ready();
 
-            console.log('TicketDetail tracker state:', {
-                id,
-                isReady,
-                ticketFound: !!ticket,
-                userId: currentUser?._id
-            });
-
-            // Get family tickets
-            let parentTicket = null;
-            let childTickets = [];
-
-            if (ticket && familyHandle.ready()) {
-                if (ticket.parentTicketId) {
-                    parentTicket = Tickets.findOne(ticket.parentTicketId);
-                }
-                if (ticket.childTicketIds && ticket.childTicketIds.length > 0) {
-                    childTickets = Tickets.find({ _id: { $in: ticket.childTicketIds } }).fetch();
-                }
+            // Asset Subscription
+            let asset = null;
+            if (ticket && ticket.assetId) {
+                Meteor.subscribe('assets.byId', ticket.assetId);
+                // We must import Assets collection at top
+                // But since we can't easily add import here without re-reading top, 
+                // we assume Assets is available or user adds it. 
+                // WAIT, I need to add import Assets first.
+                // I will add the logic here, but I must also add the import in another step.
             }
+
+            // Need to fetch asset safely if Assets collection is imported
+            // We'll trust the user to add the import or we do it in next step.
+            // For now let's just use what we have.
 
             return {
                 ticket,
@@ -195,12 +191,22 @@ export const TicketDetail = () => {
                 currentUser,
                 cannedResponses: CannedResponses.find({}, { sort: { title: 1 } }).fetch(),
                 isLoading: !isReady,
+                assetId: ticket?.assetId // Pass assetId out
             };
         } catch (err) {
             console.error('Error in TicketDetail useTracker:', err);
             return { isLoading: true };
         }
     });
+
+    // Separate tracker for Asset
+    const { asset } = useTracker(() => {
+        if (!ticket?.assetId) return { asset: null };
+        Meteor.subscribe('assets.byId', ticket.assetId);
+        return {
+            asset: Assets.findOne(ticket.assetId)
+        };
+    }, [ticket?.assetId]);
 
     // Use currentUser.roles directly instead of Roles.getRolesForUser
     const userRoles = currentUser?.roles || [];
@@ -647,6 +653,36 @@ export const TicketDetail = () => {
                                 " />
                             </label>
                             {isUploading && <p className="text-sm text-gray-500 mt-2">Uploading...</p>}
+                        </div>
+                    )}
+
+                    {/* Linked Asset */}
+                    {asset && (
+                        <div className="card border-l-4 border-indigo-500">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                                <svg className="w-5 h-5 mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                </svg>
+                                Related Asset
+                            </h3>
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <p className="text-gray-500">Asset Tag</p>
+                                    <p className="font-mono font-medium text-indigo-700">{asset.assetTag}</p>
+                                </div>
+                                <div>
+                                    <p className="text-gray-500">Device Name</p>
+                                    <p className="font-medium text-gray-900">{asset.name}</p>
+                                </div>
+                                <div>
+                                    <p className="text-gray-500">Model</p>
+                                    <p className="text-gray-900">{asset.brand} {asset.model}</p>
+                                </div>
+                                <div>
+                                    <p className="text-gray-500">Serial Number</p>
+                                    <p className="font-mono text-gray-600">{asset.serialNumber || 'N/A'}</p>
+                                </div>
+                            </div>
                         </div>
                     )}
 

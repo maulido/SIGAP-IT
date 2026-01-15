@@ -5,27 +5,20 @@ import { Roles } from '../roles/roles';
 
 Meteor.methods({
     async 'cannedResponses.create'({ title, content, shortcut, category }) {
-        console.log('Method cannedResponses.create called', { title, userId: this.userId });
-
         check(title, String);
         check(content, String);
         check(shortcut, String);
         check(category, String);
 
         if (!this.userId) {
-            console.error('Method failed: No userId');
             throw new Meteor.Error('not-authorized');
         }
 
-        const hasRole = await Roles.userIsInRoleAsync(this.userId, ['support', 'admin']);
-        console.log('Role check result:', hasRole);
-
-        if (!hasRole) {
-            console.error('Method failed: Not authorized');
+        if (!(await Roles.userIsInRoleAsync(this.userId, ['support', 'admin']))) {
             throw new Meteor.Error('not-authorized', 'Only IT Support can manage canned responses');
         }
 
-        const result = await CannedResponses.insertAsync({
+        return await CannedResponses.insertAsync({
             title,
             content,
             shortcut,
@@ -34,8 +27,6 @@ Meteor.methods({
             createdAt: new Date(),
             updatedAt: new Date()
         });
-        console.log('Canned Response inserted:', result);
-        return result;
     },
 
     async 'cannedResponses.update'(id, { title, content, shortcut, category }) {

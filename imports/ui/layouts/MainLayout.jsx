@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
-import { Sidebar } from '../components/Sidebar';
 import { Header } from '../components/Header';
+import { Sidebar } from '../components/Sidebar';
+import { AnnouncementBanner } from '../components/AnnouncementBanner';
 
 export const MainLayout = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false); // Mobile Drawer State
@@ -44,6 +45,7 @@ export const MainLayout = () => {
                     ${isCollapsed ? 'lg:ml-20' : 'lg:ml-64'}
                 `}>
                     <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto w-full">
+                        <AnnouncementBanner />
                         <Outlet />
                     </main>
                 </div>

@@ -82,3 +82,17 @@ Meteor.publish('tickets.family', async function (ticketId) {
 
     return Tickets.find({ _id: { $in: ticketIds } });
 });
+
+// Publish tickets by Asset ID
+Meteor.publish('tickets.byAsset', async function (assetId) {
+    if (!this.userId) return this.ready();
+
+    // Import Roles from api if needed, or assume global.
+    // Using async user check for Meteor 3 compatibility
+    const user = await Meteor.users.findOneAsync(this.userId);
+    if (user && user.roles && (user.roles.includes('support') || user.roles.includes('admin'))) {
+        return Tickets.find({ assetId: assetId }, { sort: { createdAt: -1 } });
+    }
+
+    return this.ready();
+});

@@ -269,7 +269,9 @@ Meteor.methods({
         }
 
         // Set new password
-        Accounts.setPassword(userId, newPassword);
+        if (Meteor.isServer) {
+            Accounts.setPassword(userId, newPassword);
+        }
 
         // Log audit
         await AuditLogs.insertAsync({

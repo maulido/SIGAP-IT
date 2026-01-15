@@ -18,7 +18,9 @@ import {
     Monitor,
     Shield,
     Database,
-    MessageSquare
+
+    MessageSquare,
+    Megaphone
 } from 'lucide-react';
 
 export const Sidebar = ({ isOpen, onClose, isCollapsed, toggleCollapse }) => {
@@ -125,6 +127,18 @@ export const Sidebar = ({ isOpen, onClose, isCollapsed, toggleCollapse }) => {
             path: '/admin/support-data',
             icon: Database,
             roles: ['admin']
+        },
+        {
+            name: 'Announcements',
+            path: '/admin/announcements',
+            icon: Megaphone,
+            roles: ['admin']
+        },
+        {
+            name: 'IT Assets',
+            path: '/admin/assets',
+            icon: Monitor,
+            roles: ['support', 'admin']
         }
     ];
 

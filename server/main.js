@@ -36,7 +36,12 @@ import '../imports/api/ratings/server';
 import '../imports/api/kb-articles/server';
 import '../imports/api/dashboard/dashboard-stats';
 import '../imports/api/reports/reports-methods';
+import '../imports/api/reports/reports-methods';
 import '../imports/api/escalations/escalation-methods';
+import '../imports/api/announcements/methods';
+import '../imports/api/announcements/server/publications';
+import '../imports/api/assets/methods';
+import '../imports/api/assets/server/publications';
 
 // Import all publications
 import '../imports/api/tickets/publications';

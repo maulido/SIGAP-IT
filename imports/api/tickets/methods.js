@@ -45,13 +45,15 @@ async function checkDuplicates(title, category, location) {
 }
 
 Meteor.methods({
-    async 'tickets.create'({ title, description, category, priority, location, attachments = [], metadata = {} }) {
+    async 'tickets.create'({ title, description, category, priority, location, attachments = [], metadata = {}, assetId }) {
         check(title, String);
         check(description, String);
         check(category, String);
         check(priority, String);
         check(location, String);
         check(metadata, Match.Maybe(Object));
+        check(attachments, Match.Maybe(Array));
+        check(assetId, Match.Maybe(String));
 
         if (!this.userId) {
             throw new Meteor.Error('not-authorized', 'You must be logged in to create a ticket');
@@ -74,6 +76,7 @@ Meteor.methods({
             status: 'Open',
             reporterId: this.userId,
             attachments,
+            assetId, // Link to asset
             metadata: metadata || {}, // Save dynamic fields
             ...slaDeadlines,
             slaStatus: 'on-track',

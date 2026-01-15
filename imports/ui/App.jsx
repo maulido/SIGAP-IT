@@ -19,7 +19,11 @@ import { AllTickets } from './pages/AllTickets';
 import { Reports } from './pages/Reports';
 import { AuditLogList } from './pages/AuditLogList';
 import { SupportDataList } from './pages/SupportDataList';
+
 import { SavedReplies } from './pages/SavedReplies';
+import { AnnouncementManager } from './pages/AnnouncementManager';
+import { AssetList } from './pages/AssetList';
+import { AssetDetail } from './pages/AssetDetail';
 
 // Layouts
 import { MainLayout } from './layouts/MainLayout';
@@ -67,7 +71,11 @@ export const App = () => (
         <Route path="reports" element={<Reports />} />
         <Route path="audit-logs" element={<AuditLogList />} />
         <Route path="admin/support-data" element={<SupportDataList />} />
+
         <Route path="admin/saved-replies" element={<SavedReplies />} />
+        <Route path="admin/announcements" element={<AnnouncementManager />} />
+        <Route path="admin/assets" element={<AssetList />} />
+        <Route path="admin/assets/:id" element={<AssetDetail />} />
       </Route>
     </Routes>
   </Router>

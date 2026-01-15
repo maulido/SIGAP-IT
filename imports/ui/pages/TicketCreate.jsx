@@ -38,6 +38,12 @@ export const TicketCreate = () => {
     const [searchingParent, setSearchingParent] = useState(false);
     const [kbRecommendations, setKbRecommendations] = useState([]);
 
+    // Asset Linking
+    const [assetTag, setAssetTag] = useState('');
+    const [selectedAsset, setSelectedAsset] = useState(null);
+    const [searchingAsset, setSearchingAsset] = useState(false);
+    const [assetError, setAssetError] = useState('');
+
     // Subscribe to Category Configs
     const { categoryConfig, isLoadingConfig } = useTracker(() => {
         const handle = Meteor.subscribe('categoryConfigs.all'); // We might need to create this publication
@@ -191,6 +197,30 @@ export const TicketCreate = () => {
         }
     };
 
+    const handleSearchAsset = async () => {
+        if (!assetTag.trim()) return;
+
+        setSearchingAsset(true);
+        setAssetError('');
+        setSelectedAsset(null);
+
+        try {
+            const results = await Meteor.callAsync('assets.search', assetTag);
+            if (results && results.length > 0) {
+                // For simplicity, just pick the first match or exact match
+                // Ideally show a list, but this is a quick implementation
+                const exactMatch = results.find(a => a.assetTag.toLowerCase() === assetTag.toLowerCase());
+                setSelectedAsset(exactMatch || results[0]);
+            } else {
+                setAssetError('Asset not found');
+            }
+        } catch (err) {
+            setAssetError('Error searching asset');
+        } finally {
+            setSearchingAsset(false);
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
@@ -199,7 +229,10 @@ export const TicketCreate = () => {
         try {
             // Create ticket first
             const result = await new Promise((resolve, reject) => {
-                Meteor.call('tickets.create', formData, (err, res) => {
+                const payload = { ...formData };
+                if (selectedAsset) payload.assetId = selectedAsset._id;
+
+                Meteor.call('tickets.create', payload, (err, res) => {
                     if (err) reject(err);
                     else resolve(res);
                 });
@@ -548,6 +581,51 @@ export const TicketCreate = () => {
                                     </button>
                                 </div>
                             ))}
+                        </div>
+                    )}
+                </div>
+
+
+                {/* Asset Linking */}
+                <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Related Asset (Optional)
+                    </label>
+                    <div className="flex space-x-2">
+                        <input
+                            type="text"
+                            value={assetTag}
+                            onChange={(e) => setAssetTag(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleSearchAsset())}
+                            className="input-field flex-1"
+                            placeholder="Enter Asset Tag (e.g., LP-001) or Name"
+                        />
+                        <button
+                            type="button"
+                            onClick={handleSearchAsset}
+                            disabled={searchingAsset || !assetTag.trim()}
+                            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50"
+                        >
+                            {searchingAsset ? 'Searching...' : 'Search'}
+                        </button>
+                    </div>
+                    {assetError && <p className="mt-1 text-sm text-red-600">{assetError}</p>}
+
+                    {selectedAsset && (
+                        <div className="mt-2 bg-gray-50 border border-gray-200 rounded-lg p-3 flex justify-between items-center">
+                            <div>
+                                <p className="text-sm font-medium text-gray-900">{selectedAsset.assetTag} - {selectedAsset.name}</p>
+                                <p className="text-xs text-gray-500">{selectedAsset.brand} {selectedAsset.model}</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => { setSelectedAsset(null); setAssetTag(''); }}
+                                className="text-gray-400 hover:text-gray-600"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
                         </div>
                     )}
                 </div>
